@@ -1,6 +1,6 @@
 # The geometry of forecast reconciliation
 
-##Abstract:
+## Abstract:
 
 It is common to forecast at different levels of aggregation. For example, a retail company will want national forecasts, state forecasts, and store-level forecasts. And they will want them for all products, for groups of products, and for individual products. Forecast reconciliation methods allow for the forecasts at all levels of aggregation to be adjusted so they are consistent with each other.
 
