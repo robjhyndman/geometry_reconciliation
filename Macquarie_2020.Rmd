@@ -189,7 +189,7 @@ A \alert{\textbf{grouped time series}} is a collection of time series that can b
 
 \begin{alertblock}{}
 \begin{enumerate}\tightlist
- \item How to forecast time series at all nodes such that the forecasts add up in the same way as the original data?
+ \item How to forecast time series at all nodes such that the forecasts are \textbf{coherent}?
  \item Can we exploit relationships between the series to improve the forecasts?
 \end{enumerate}
 \end{alertblock}\pause
@@ -197,12 +197,12 @@ A \alert{\textbf{grouped time series}} is a collection of time series that can b
 ### The solution
 
 1. Forecast all series at all levels of aggregation using an automatic forecasting algorithm.\newline (e.g., `ETS`, `ARIMA`, ...)
-2. Reconcile the resulting forecasts so they add up correctly using least squares optimization (i.e., find closest reconciled forecasts to the original forecasts).
+2. Reconcile the resulting forecasts so they are coherent using least squares optimization (i.e., find closest reconciled forecasts to the original forecasts).
 
 ## Hierarchical and grouped time series
 
 \begin{textblock}{8.5}(0.2,1.5)
-Every collection of time series with aggregation constraints can be written as
+Every collection of time series with linear constraints can be written as
 \centerline{\colorbox[RGB]{210,210,210}{$\bY_{t}=\color{blue}\bS\color{red}\bm{b}_{t}$}}
 \vspace*{-0.9cm}\begin{itemize}\parskip=0cm\itemsep=0cm
 \item $\by_t=$ vector of all series at time $t$
@@ -210,7 +210,7 @@ Every collection of time series with aggregation constraints can be written as
 $t$.
 \item $ y_{X,t}= $ value of series $X$ at time $t$.
 \item $\color{red}{\bm{b}_t}=$ vector of most disaggregated series at time $t$
-\item $\color{blue}{\bS}=$ ``summing matrix'' containing the aggregation constraints.
+\item $\color{blue}{\bS}=$ ``summing matrix'' containing the linear constraints.
 \end{itemize}
 \end{textblock}
 
@@ -386,21 +386,65 @@ $t$.
 
 \vspace*{10cm}
 
-
-
 ## Forecasting notation
 
-Let $\hat{\by}_n(h)$ be vector of initial $h$-step forecasts, made at time $T$, stacked in same order as $\by_t$. \pause\newline  (In general, they will not ``add up''.)\pause
+### Base forecasts
+Let $\hat{\bm{y}}_{t+h|t}$ be vector of initial $h$-step forecasts, made at time $t$, stacked in same order as $\by_t$. \emph{(In general, they will not be coherent.)}\pause
 
+### Reconciled forecasts
+
+Let $\tilde{\bm{y}}_{t+h|t}=\psi(\hat{\bm{y}}_{t+h|t})$
+be a vector of $h$-step forecasts which are coherent. \emph{Also stacked in the same order as $\by_t$.)}
+
+## Geometric intuition
+
+\begin{textblock}{9}(.2,1.3)\fontsize{13}{14}\sf
+\begin{block}{Coherent subspace}
+$m$-dimensional linear subspace $\mathfrak{s}\subset \mathbb{R}^n$ for which linear constraints hold for all $\bm{y}\in\mathfrak{s}$.
+\end{block}\vspace*{-0.2cm}
+\begin{block}{Hierarchical Time Series}
+An $n$-dimensional multivariate time series such that $\bm{y}_t\in\mathfrak{s}\quad\forall t$.
+\end{block}\vspace*{-0.2cm}
+\begin{block}{Coherent Point Forecasts}
+$\tilde{\bm{y}}_{t+h|t}$ is \emph{coherent} if $\tilde{\bm{y}}_{t+h|t} \in \mathfrak{s}$.
+\end{block}\vspace*{-0.2cm}
+\begin{block}{Reconciled forecasts}
+Let $\psi$ be a mapping, $\psi:\mathbb{R}^n\rightarrow\mathfrak{s}$.  $\tilde{\bm{y}}_{t+h|t}=\psi(\hat{\bm{y}}_{t+h|t})$ ``reconciles'' a base forecast $\hat{\bm{y}}_{t+h|t}$.
+\end{block}
+\end{textblock}
+\placefig{9.4}{.0}{width=6.6cm}{3D_hierarchy}
+\begin{textblock}{3}(11.4,5.6)
 \begin{block}{}
-Reconciled forecasts must be of the form:
-$$\tilde{\by}_{T}(h)=\bS\bm{G}\hat{\by}_{T}(h)$$
-for some matrix $\bm{G}$.
-\end{block}\pause
+\centerline{$ y_{Tot} = y_A + y_B$}
+\end{block}
+\end{textblock}
 
- * $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T}(h)$ to get bottom-level forecasts.
- * $\bS$ adds them up
+## Linear reconciliation
 
+\begin{textblock}{9}(0.2,1.3)\fontsize{13}{14}\sf
+\begin{block}{}
+If $\psi$ is a linear function and $\bm{G}$ is some matrix, then
+$$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
+\end{block}
+\begin{itemize}
+\item $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T}(h)$ to get bottom-level forecasts.
+\item $\bS$ creates linear combinations.
+\end{itemize}
+\begin{alertblock}{Distance reducing property}
+If $\bm{S}\bm{G}$ is an orthogonal projection (in the Euclidean sense) onto $\mathfrak{s}$ then:
+  \begin{equation*}
+    \|\bm{y}_{t+h}-\tilde{\bm{y}}_{t+h|t}\|\le\|\bm{y}_{t+h}-\hat{\bm{y}}_{t+h|t}\|.
+  \end{equation*}
+\end{alertblock}
+\end{textblock}
+\placefig{9.4}{-0.5}{width=6.6cm}{fig3}
+\begin{textblock}{6.6}(9.4,5.5)\fontsize{12}{12}\sf
+\begin{itemize}
+\item Distance reduction holds for any realisation and any forecast.
+\item Other measures of forecast accuracy may be worse.
+\item Not necessarily the optimal reconciliation.
+\end{itemize}
+\end{textblock}
 
 ## General properties: bias and variance
 
