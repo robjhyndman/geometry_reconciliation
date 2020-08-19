@@ -1,0 +1,6 @@
+*.aux
+*.log
+*.out
+*_cache/
+*_files/
+Macquarie_2020.tex
