@@ -31,12 +31,6 @@ library(fpp3)
 
 \full{pills}
 
-## PBS sales
-\fontsize{9}{10}\sf
-```{r setwidthback, include=FALSE}
-options(width = fred$width)
-```
-
 ## ATC drug classification
 \fontsize{12}{13}\sf
 
@@ -72,6 +66,50 @@ V &Various
  }}}};
  \end{tikzpicture}
 \end{minipage}
+
+## PBS sales
+\fontsize{9}{10}\sf
+
+```{r pbs, echo=FALSE}
+PBS %>%
+  group_by(ATC1,ATC2) %>%
+  summarise(
+    Scripts = sum(Scripts),
+    Cost = sum(Cost)
+  ) %>%
+  ungroup() %>%
+  select(Month, ATC1, ATC2, Scripts, Cost)
+```
+
+
+## Australian tourism
+\placefig{0}{1.4}{width=9cm}{regions1_with_labels}
+
+\only<2>{\begin{textblock}{7.7}(8,1.4)\fontsize{12}{13}\sf
+\begin{block}{}
+  \begin{itemize}\itemsep=0cm\parskip=0cm
+    \item Quarterly data on visitor night from 1998:Q1 -- 2013:Q4
+    \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
+    \item Split by 7 states, 27 zones and 76 regions (a geographical hierarchy)
+    \item Also split by purpose of travel
+      \begin{itemize}\itemsep=0cm\parskip=0cm
+        \item Holiday
+        \item Visiting friends and relatives (VFR)
+        \item Business
+        \item Other
+      \end{itemize}
+    \item 304 bottom-level series
+  \end{itemize}
+\end{block}
+\end{textblock}}
+
+## Australian tourism
+\fontsize{11}{12}\sf
+
+```{r tourism}
+tourism
+```
+
 
 ## Hierarchical time series
 \fontsize{13}{14}\sf
@@ -110,34 +148,6 @@ A \alert{\textbf{hierarchical time series}} is a collection of several time seri
 
  * PBS sales by ATC groups
  * Tourism demand by states, zones, regions
-
-## Australian tourism
-\placefig{0}{1.4}{width=9cm}{regions1_with_labels}
-
-\only<2>{\begin{textblock}{7.7}(8,1.4)\fontsize{12}{13}\sf
-\begin{block}{}
-  \begin{itemize}\itemsep=0cm\parskip=0cm
-    \item Quarterly data on visitor night from 1998:Q1 -- 2013:Q4
-    \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
-    \item Split by 7 states, 27 zones and 76 regions (a geographical hierarchy)
-    \item Also split by purpose of travel
-      \begin{itemize}\itemsep=0cm\parskip=0cm
-        \item Holiday
-        \item Visiting friends and relatives (VFR)
-        \item Business
-        \item Other
-      \end{itemize}
-    \item 304 bottom-level series
-  \end{itemize}
-\end{block}
-\end{textblock}}
-
-## Australian tourism
-\fontsize{11}{12}\sf
-
-```{r tourism}
-tourism
-```
 
 ## Grouped time series
 \fontsize{13}{14}\sf
@@ -186,18 +196,33 @@ A \alert{\textbf{grouped time series}} is a collection of time series that can b
 
 ## The problem
 \fontsize{13}{14}\sf
-
 \begin{alertblock}{}
-\begin{enumerate}\tightlist
- \item How to forecast time series at all nodes such that the forecasts are \textbf{coherent}?
- \item Can we exploit relationships between the series to improve the forecasts?
-\end{enumerate}
+How to produce \textbf{coherent} forecasts at all nodes?
 \end{alertblock}\pause
 
-### The solution
+### Old approaches (pre 2009)
 
-1. Forecast all series at all levels of aggregation using an automatic forecasting algorithm.\newline (e.g., `ETS`, `ARIMA`, ...)
+  * Bottom-up forecasting
+  * Top-down forecasting
+  * Middle-out forecasting
+
+\pause
+
+### Forecast reconcilation approach
+
+1. Forecast all series at all levels of aggregation using an automatic forecasting algorithm.  (e.g., `ETS`, `ARIMA`, ...)
 2. Reconcile the resulting forecasts so they are coherent using least squares optimization (i.e., find closest reconciled forecasts to the original forecasts).
+
+## Key forecast reconciliation papers
+\fontsize{12}{14}\sf
+
+* Hyndman, Ahmed, Athanasopoulos, Shang (2011 \emph{CSDA}) Optimal combination forecasts for hierarchical time series.
+* Athanasopoulos, Ahmed, Hyndman (2009 \emph{IJF}) Hierarchical forecasts for Australian domestic tourism.
+* Hyndman, Lee, Wang (2016 \emph{CSDA}) Fast computation of reconciled forecasts for hierarchical and grouped time series.
+* Wickramasuriya, Athanasopoulos, Hyndman (2019 \emph{JASA}) Optimal forecast reconciliation for hierarchical and grouped time series through trace minimization.
+* Panagiotelis, Gamakumara, Athanasopoulos, Hyndman (2020 \emph{IJF}) Forecast reconciliation: A geometric view with new insights on bias correction.
+* Panagiotelis, Gamakumara, Athanasopoulos, Hyndman (2020) Probabilistic forecast reconciliation: properties, evaluation and score optimisation.
+
 
 ## Hierarchical and grouped time series
 
@@ -386,32 +411,30 @@ $t$.
 
 \vspace*{10cm}
 
-## Forecasting notation
+## Definitions
 
-### Base forecasts
-Let $\hat{\bm{y}}_{t+h|t}$ be vector of initial $h$-step forecasts, made at time $t$, stacked in same order as $\by_t$. \emph{(In general, they will not be coherent.)}\pause
-
-### Reconciled forecasts
-
-Let $\tilde{\bm{y}}_{t+h|t}=\psi(\hat{\bm{y}}_{t+h|t})$
-be a vector of $h$-step forecasts which are coherent. \emph{Also stacked in the same order as $\by_t$.)}
-
-## Geometric intuition
-
-\begin{textblock}{9}(.2,1.3)\fontsize{13}{14}\sf
+\begin{textblock}{9}(.2,1.25)\fontsize{13}{14}\sf
 \begin{block}{Coherent subspace}
 $m$-dimensional linear subspace $\mathfrak{s}\subset \mathbb{R}^n$ for which linear constraints hold for all $\bm{y}\in\mathfrak{s}$.
-\end{block}\vspace*{-0.2cm}
-\begin{block}{Hierarchical Time Series}
+\end{block}\vspace*{-0.25cm}
+\begin{block}{Hierarchical time series}
 An $n$-dimensional multivariate time series such that $\bm{y}_t\in\mathfrak{s}\quad\forall t$.
-\end{block}\vspace*{-0.2cm}
-\begin{block}{Coherent Point Forecasts}
+\end{block}\vspace*{-0.25cm}
+\begin{block}{Coherent point forecasts}
 $\tilde{\bm{y}}_{t+h|t}$ is \emph{coherent} if $\tilde{\bm{y}}_{t+h|t} \in \mathfrak{s}$.
 \end{block}\vspace*{-0.2cm}
-\begin{block}{Reconciled forecasts}
-Let $\psi$ be a mapping, $\psi:\mathbb{R}^n\rightarrow\mathfrak{s}$.  $\tilde{\bm{y}}_{t+h|t}=\psi(\hat{\bm{y}}_{t+h|t})$ ``reconciles'' a base forecast $\hat{\bm{y}}_{t+h|t}$.
-\end{block}
 \end{textblock}
+\only<2-3>{\begin{textblock}{7.5}(.2,6.6)
+\begin{alertblock}{Base forecasts}
+Let $\hat{\bm{y}}_{t+h|t}$ be vector of \emph{incoherent} initial $h$-step forecasts.$\phantom{y_{t|h}}$
+\end{alertblock}
+\end{textblock}}
+\only<3>{\begin{textblock}{7.5}(8.3,6.6)
+\begin{alertblock}{Reconciled forecasts}
+Let $\psi$ be a mapping, $\psi:\mathbb{R}^n\rightarrow\mathfrak{s}$.  $\tilde{\bm{y}}_{t+h|t}=\psi(\hat{\bm{y}}_{t+h|t})$ ``reconciles'' $\hat{\bm{y}}_{t+h|t}$.
+\end{alertblock}
+\end{textblock}}
+
 \placefig{9.4}{.0}{width=6.6cm}{3D_hierarchy}
 \begin{textblock}{3}(11.4,5.6)
 \begin{block}{}
@@ -425,77 +448,142 @@ Let $\psi$ be a mapping, $\psi:\mathbb{R}^n\rightarrow\mathfrak{s}$.  $\tilde{\b
 \begin{block}{}
 If $\psi$ is a linear function and $\bm{G}$ is some matrix, then
 $$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
-\end{block}
+\end{block}\vspace*{-0.3cm}
 \begin{itemize}
-\item $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T}(h)$ to get bottom-level forecasts.
+\item $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T+h|T}$ to get bottom-level forecasts.
 \item $\bS$ creates linear combinations.
 \end{itemize}
-\begin{alertblock}{Distance reducing property}
-If $\bm{S}\bm{G}$ is an orthogonal projection (in the Euclidean sense) onto $\mathfrak{s}$ then:
+\end{textblock}
+
+\only<2->{
+  \begin{textblock}{9}(0.2,5.4)
+  \begin{block}{}
+  e.g., OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
+  \end{block}
+  \end{textblock}
+}
+\only<2->{
+\placefig{9.4}{-0.5}{width=6.6cm}{fig3}
+}
+
+\only<3>{
+  \begin{textblock}{9}(0.2,6.3)
+  \begin{alertblock}{Projections}
+  Suppose $\bm{S}\bm{G}$ is a projection onto $\mathfrak{s}$, then\fontsize{12}{13}\sf
+  \begin{itemize}
+  \item Coherent base forecasts are unchanged.
+  \item Unbiased base forecasts remain unbiased.
+  \end{itemize}
+  \end{alertblock}
+  \end{textblock}
+}
+\only<3>{
+  \begin{textblock}{6.6}(9.2,5.5)\fontsize{12}{12}\sf
+  \begin{itemize}
+  \item Orthogonal projections lead to smallest possible adjustments of base forecasts.
+  \end{itemize}
+  \end{textblock}
+}
+
+\only<4>{
+  \begin{textblock}{9}(0.2,6.3)
+  \begin{alertblock}{Distance reducing property}
+  If $\bm{S}\bm{G}$ is an orthogonal projection onto $\mathfrak{s}$ then:
   \begin{equation*}
     \|\bm{y}_{t+h}-\tilde{\bm{y}}_{t+h|t}\|\le\|\bm{y}_{t+h}-\hat{\bm{y}}_{t+h|t}\|.
   \end{equation*}
-\end{alertblock}
-\end{textblock}
-\placefig{9.4}{-0.5}{width=6.6cm}{fig3}
-\begin{textblock}{6.6}(9.4,5.5)\fontsize{12}{12}\sf
-\begin{itemize}
-\item Distance reduction holds for any realisation and any forecast.
-\item Other measures of forecast accuracy may be worse.
-\item Not necessarily the optimal reconciliation.
-\end{itemize}
-\end{textblock}
+  \end{alertblock}
+  \end{textblock}
+}
 
-## General properties: bias and variance
+\only<4>{
+  \begin{textblock}{6.6}(9.2,5.5)\fontsize{12}{12}\sf
+  \begin{itemize}
+  \item Distance reduction holds for any realisation and any forecast.
+  \item Other measures of forecast accuracy may be worse.
+  \item Not necessarily the optimal reconciliation.
+  \end{itemize}
+  \end{textblock}
+}
 
+## Oblique projections
+
+\begin{textblock}{5}(6,0)
 \begin{block}{}
-\centerline{$ \tilde{\by}_{T}(h)=\bS\bm{G}\hat{\by}_{T}(h)$}
-\end{block}\pause
-
-\textbf{\alert{Bias}}
-\begin{alertblock}{}\centering
-Reconciled forecasts are unbiased iff $\bS\bm{G}\bS=\bS$.\rlap{\phantom{g}}
-\end{alertblock}\pause
-
-\textbf{\alert{Variance}}
-
-Let error variance of $h$-step base forecasts $\hat{\by}_n(h)$ be
-$$\bSigma_h = \var[\by_{T+h} - \hat{\by}_{T}(h) \mid \by_1,\dots,\by_n] $$
-Then the error variance of the corresponding reconciled forecasts is
-\begin{alertblock}{}
-\centerline{$\var[\by_{T+h} - \tilde{\by}_{T}(h)  \mid \by_1,\dots,\by_n]  = \bS\bm{G}\bSigma_{h}\bm{G}'\bS'$}
-\end{alertblock}
-
-## Optimal forecast reconciliation
-
-\begin{block}{}
-\centerline{$ \tilde{\by}_{T}(h)=\bS\bm{G}\hat{\by}_{T}(h)$}
-\end{block}\pause
-
-\begin{alertblock}{Minimum trace reconciliation}
-If $\bm{P}$ satisfies $\bm{S}\bm{G}\bm{S} = \bm{S}$, then
-
-$\min_{\bm{G}} = \text{trace}[\bm{S}\bm{G}\bSigma_h\bm{G}'\bm{S}']$ has solution $\bm{G} = (\bS'\bSigma^{-1}_{h}\bS)^{-1}\bS'\bSigma^{-1}_{h}$.
-\end{alertblock}\pause
-
-\begin{block}{}
-\centerline{$\displaystyle\textcolor{red}{\text{\small Reconciled forecasts}\qquad\tilde{\by}_{T}(h)}
-=\bS(\bS'\bSigma^{-1}_{h}\bS)^{-1}\bS'\bSigma^{-1}_{h}\textcolor{blue}{\hat{\by}_{T}(h)\qquad\text{\small Base forecasts}}$}
+\centerline{$\tilde{\by}_{T+h|T}=\bS\bm{G}\hat{\by}_{T+h|T}$}
 \end{block}
+\end{textblock}
 
-\vspace*{9cm}
+\begin{textblock}{9}(0.2,1.25)\fontsize{13}{14}\sf
+\begin{block}{Variance}
+\centerline{$\bm{V}_h = \var[\by_{T+h} - \tilde{\by}_{T+h|T}  \mid \by_1,\dots,\by_n]  = \bS\bm{G}\bm{W}_{h}\bm{G}'\bS'$}
+where $\bm{W}_h = \var[\by_{T+h} - \hat{\by}_{T+h|T} \mid \by_1,\dots,\by_n]$.
+\end{block}\vspace*{-0.2cm}
+\begin{alertblock}{Minimum trace (MinT) reconciliation}
+If $\bm{S}\bm{G}$ is a projection, then the trace of $\bm{V}_h$ is minimized when
+$$
+  \bm{G} = (\bS'\bm{W}_h^{-1}\bS)^{-1}\bS'\bm{W}_h^{-1}{h}
+$$
+\end{alertblock}
+\end{textblock}
+
+\only<2>{\placefig{9.7}{1.5}{width=7.4cm}{InsampDir_1_George}}
+\only<3>{\placefig{9.7}{1.5}{width=7.4cm}{InsampDir_2_George}}
+\only<4>{\placefig{9.7}{1.5}{width=7.4cm}{OrthProj_George}}
+\only<5>{\placefig{9.7}{1.5}{width=7.4cm}{ObliqProj_George}}
+
+\only<2->{
+  \begin{textblock}{9}(.7,6)
+  \begin{itemize}\itemsep=0cm
+  \item $R$ is the most likely direction of deviations from $\mathfrak{s}$.
+  \only<2>{\item Orange: in-sample errors}
+  \only<3->{\item Grey: potential base forecasts}
+  \only<4->{\item Red: reconciled forecsts}
+  \end{itemize}
+  \end{textblock}
+}
+
+\only<4->{
+  \begin{textblock}{5}(10,7.3)
+  \begin{block}{}
+  \only<4>{Orthogonal projection}
+  \only<5>{Oblique projection}
+  \end{block}
+  \end{textblock}
+}
+
+## Linear projections
+
+\begin{textblock}{9.2}(.5,1.2)
+\begin{block}{}
+\begin{tabular}{ll}
+  \textbf{Reconciliation method} & $\bm{G}$ \\
+  \midrule
+  OLS             & $(\bm{S}'\bm{S})^{-1}\bm{S}'$ \\
+  WLS             & $(\bm{S}'\bm{\Lambda}\bm{S})^{-1}\bm{S}'\bm{\Lambda}$ \\
+  MinT(Sample)    & $(\bm{S}'\hat{\bm{W}}_{\text{sam}}^{-1}\bm{S})^{-1}\bm{S}' \hat{\bm{W}}_{\text{sam}}^{-1}$  \\
+  MinT(Shrink)    & $(\bm{S}'\hat{\bm{W}}_{\text{shr}}^{-1}\bm{S})^{-1}\bm{S}' \hat{\bm{W}}_{\text{shr}}^{-1}$  \\
+\end{tabular}
+\end{block}
+\end{textblock}
+\begin{textblock}{14}(.2,5.3)\fontsize{13}{14}\sf
 \begin{itemize}
-\item Assume that $\bSigma_h =k_h \bSigma_1$ to simplify computations.
+\item $\bm{\Lambda}$ is diagonal matrix
+\item $\hat{\bm{W}}_{\text{sam}}$ is sample estimate of the residual covariance matrix
+\item $\hat{\bm{W}}_{\text{shr}}$ is shrinkage estimator $\tau \textrm{diag}(\hat{\bm{W}}_{\text{sam}})+(1-\tau)\hat{\bm{W}}_{\text{sam}}$ where $\tau = \displaystyle\frac{\sum_{i \neq j}\hat{\var}(\hat{\sigma}_{ij})}{\sum_{i \neq j}{\hat{\sigma}}^2_{ij}}$ and $\sigma_{ij}$ denotes the $(i,j)$th element of $\hat{\bm{W}}_{\text{sam}}$.
 \end{itemize}
 \end{textblock}
 
-\alert{\textbf{Problem:}} $\bW_h$ hard to estimate, especially for $h>1$.
+\begin{textblock}{5}(10.7,1.2)
+\begin{alertblock}{}
+These all assume that $\bm{W}_h = k_h \bm{W}_1$ to simplify computations.
+\end{alertblock}
+\end{textblock}
 
-\alert{Solutions:}\vspace*{-0.4cm}
+## To add from geometry paper
 
- * Ignore $\bW_h$ (OLS) [`min_trace(method='ols')`]
- * Assume $\bW_h = k_h\bW_1$ is diagonal (WLS) [`min_trace(method='wls')`]
- * Assume $\bW_h = k_h\bW_1$ and estimate it (GLS) [`min_trace(method='shrink')` (the default)]
+* Tourism example from geometry paper (not bias section)
+
 
 # Example: Australian tourism
 
@@ -654,3 +742,67 @@ tourism %>%
   reconcile(ets_adjusted = min_trace(ets)) %>%
   forecast(h = 2)
 ```
+
+# Probabilistic forecast reconciliation
+
+## Coherent probabilistic forecasts
+\begin{textblock}{9.5}(0.2,1.2)\fontsize{13}{15}\sf
+\begin{block}{Coherent probabilistic forecasts}
+Given the triple $(\mathbb{R}^m, \mathscr{F}_{\mathbb{R}^m}, \nu)$, a coherent probability triple $(\mathfrak{s}, \mathscr{F}_{\mathfrak{s}}, \breve{\nu})$  is such that
+$$
+  \breve{\nu}(s(\mathcal{B})) = \nu(\mathcal{B}) \quad \forall \mathcal{B} \in \mathscr{F}_{\mathbb{R}^m}.
+$$
+\end{block}\vspace*{-0.2cm}
+\begin{block}{Probabilistic forecast reconciliation}
+The reconciled probability measure of $\hat{\nu}$ wrt $\psi(.)$ is such that
+  \[
+  \tilde{\nu}(\mathcal{B}) = \hat{\nu}(\psi^{-1}(\mathcal{B})) \qquad \forall \mathcal{B} \in \mathscr{F}_{\mathfrak{s}}\,,
+  \]
+  where $\psi^{-1}(\mathcal{B}):=\{{\bm{y}}\in \mathbb{R}^n:\psi({\bm{y}})\in \mathcal{B}\}$ is the pre-image of $\mathcal{B}$, that is the set of all points in $\mathbb{R}^n$ that $\psi(.)$ maps to a point in $\mathcal{B}$.
+\end{block}
+\end{textblock}
+\begin{textblock}{7}(9.5,1.2)
+\resizebox{\textwidth}{!}{
+\input figs/probforerec_schematic.tex
+}
+\end{textblock}
+
+## Construction of reconciled distributions
+
+### Reconciled density of bottom-level
+
+Density of bottom-level series under reconciled distribution is
+\[
+  \tilde{f}_{\bm{b}}(\bm{b})=|\bm{G}^*|\int \hat{f}(\bm{G}^{-}\bm{b}+\bm{G}_\perp \bm{a})d\bm{a}\,,
+\]
+
+  * $\hat{f}$ is density of incoherent base probabilistic forecast
+  * $\bm{G^-}$ is $n\times m$ generalised inverse of $\bm{G}$ st $\bm{G}\bm{G}^-=\bm{I}$
+  * $\bm{G_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{G}$ st $\bm{G}\bm{G}_\perp=\bm{0}$
+  * $\bm{G}^*=\left(\bm{G}^-\,\vdots\,\bm{G}_\perp\right)$, and $\bm{b}$ and $\bm{a}$ are obtained via\newline the change of variables $\bm{y}=\bm{G}^*\begin{pmatrix}\bm{b}\\\bm{a}\end{pmatrix}$
+
+## Construction of reconciled distributions
+
+### Reconciled density of full hierarchy
+
+Density of full hierarchy under reconciled distribution is
+\[
+  \tilde{f}_{\bm{y}}(\bm{y}) =
+  |\bm{S}^*| \tilde{f}_{\bm{b}}({\bm{S}^-\bm{y}})
+  \mathbb{1}\{\bm{y}\in\mathfrak{s}\}\,,
+\]
+
+  * $\bm{S}^*=\begin{pmatrix}
+  \bm{S}^-\\
+  \bm{S}'_\perp
+  \end{pmatrix}$
+  * $\bm{S^-}$ is $m\times n$ generalised inverse of $\bm{S}$ such that $\bm{S}^-\bm{S}=\bm{I}$,
+  * $\bm{S_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{S}$ such that $\bm{S}'_\perp\bm{S}=\bm{0}$.
+
+
+## To add from probabilistic paper
+
+ * Theorem 3.5
+ * Table 2
+ * Score optimal reconciliation
+ * Electricity example
