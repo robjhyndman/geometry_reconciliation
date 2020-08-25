@@ -18,104 +18,161 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE,
+  echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE,
   dev.args = list(pointsize = 11)
 )
 options(digits = 3, width = 60)
 library(fpp3)
+library(patchwork)
 ```
 
 # Hierarchical and grouped time series
 
-## Australian Pharmaceutical Benefits Scheme
-
-\full{pills}
-
-## ATC drug classification
-\fontsize{12}{13}\sf
-
-\hspace*{-0.5cm}\begin{tabular}{lp{10.7cm}}
-A &Alimentary tract and metabolism\\
-B &Blood and blood forming organs\\
-C &Cardiovascular system\\
-D &Dermatologicals\\
-G &Genito-urinary system and sex hormones\\
-H &Systemic hormonal preparations, excluding sex hormones and insulins\\
-J &Anti-infectives for systemic use\\
-L &Antineoplastic and immunomodulating agents\\
-M &Musculo-skeletal system\\
-N &Nervous system\\
-P &Antiparasitic products, insecticides and repellents\\
-R &Respiratory system\\
-S &Sensory organs\\
-V &Various
-\end{tabular}
-
-## ATC drug classification
-\hspace*{-1.5cm}\begin{minipage}{9.6cm}
-\begin{tikzpicture}
-\tikzstyle{every node}=[ellipse,font=\small,draw,fill=red!15]
-\tikzstyle[level font=\small,set style={{every node}+=[fill=blue!15]}]
-\tikzstyle{level 1}=[font=\small,set style={{every node}+=[fill=blue!15]}]
-\tikzstyle{level 2}=[font=\small,set style={{every node}+=[fill=yellow]}]
-\node[label=right:\hspace*{-0.cm}Alimentary tract and metabolism,label=left:\textbf{ATC1: 14 classes}\hspace*{0.3cm}]{A}[edge from parent fork down]
-   child {node[label=right:\hspace*{-0.0cm}Drugs used in diabetes,label=left:\textbf{ATC2: 84 classes}]{A10}
-     child {node[label=right:\hspace*{-0.35cm}Blood glucose lowering drugs]{A10B}
-       child {node[label=right:\hspace*{0.1cm}Biguanides]{A10BA}
-         child {node[label=right:\hspace*{-0.15cm}Metformin]{A10BA02}
- }}}};
- \end{tikzpicture}
-\end{minipage}
-
-## PBS sales
-\fontsize{9}{10}\sf
-
-```{r pbs, echo=FALSE}
-PBS %>%
-  group_by(ATC1,ATC2) %>%
-  summarise(
-    Scripts = sum(Scripts),
-    Cost = sum(Cost)
-  ) %>%
-  ungroup() %>%
-  select(Month, ATC1, ATC2, Scripts, Cost)
-```
-
-
 ## Australian tourism
-\placefig{0}{1.4}{width=9cm}{regions1_with_labels}
+\placefig{-0.3}{1.4}{width=9.4cm, height=20cm, keepaspectratio=TRUE}{regions1_with_labels}
 
-\only<2>{\begin{textblock}{7.7}(8,1.4)\fontsize{12}{13}\sf
+\only<2>{\begin{textblock}{6.4}(9.3,1.4)
 \begin{block}{}
   \begin{itemize}\itemsep=0cm\parskip=0cm
-    \item Quarterly data on visitor night from 1998:Q1 -- 2013:Q4
+    \item Monthly data on visitor night from 1998 -- 2017
     \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
-    \item Split by 7 states, 27 zones and 76 regions (a geographical hierarchy)
-    \item Also split by purpose of travel
-      \begin{itemize}\itemsep=0cm\parskip=0cm
-        \item Holiday
-        \item Visiting friends and relatives (VFR)
-        \item Business
-        \item Other
-      \end{itemize}
-    \item 304 bottom-level series
+    \item Geographical hierarchy split by 
+    \begin{itemize}
+    \item 7 states
+    \item 27 zones
+    \item 75 regions
+    \end{itemize}
   \end{itemize}
 \end{block}
 \end{textblock}}
 
-## Australian tourism
+## Australian tourism data
 \fontsize{11}{12}\sf
 
-```{r tourism}
+```{r tourism, echo=FALSE}
+# Read csv file of monthly data
+OvernightTrips_Region <- readr::read_csv("OvernightTrips_2017.csv")[,-(1:3)] %>%
+  # Remove outlier from Adelaide Hills
+  mutate(
+    `Adelaide Hills` = case_when(
+      `Adelaide Hills` > 80 ~ NA_real_,
+                       TRUE ~ `Adelaide Hills`
+    )
+  )
+# Convert to tsibble
+tourism <- hts::hts(
+    ts(OvernightTrips_Region, start=1998, frequency=12),
+    list(7, c(6,5,4,4,3,3,2), c(2,2,1,4,4,1,3,1,3,6,7,3,4,3,2,3,3,4,2,3,1,1,1,2,2,3,4))
+  ) %>%
+  as_tsibble() %>%
+  rename(
+    state = "Level 1",
+    zone = "Level 2",
+    region = "Level 3",
+    month = index,
+    visitors = value
+  ) %>%
+  mutate(
+    state = recode(state,
+      A = "NSW",
+      B = "VIC",
+      C = "QLD",
+      D = "SA",
+      E = "WA",
+      F = "TAS",
+      G = "NT"
+    ),
+    zone = recode(zone,
+      AA = "Metro NSW",
+			AB = "North Coast NSW",
+			AC = "South Coast NSW",
+			AD = "South NSW",
+			AE = "North NSW",
+			AF = "ACT",
+			BA = "Metro VIC",
+			BB = "West Coast VIC",
+			BC = "East Coast VIC",
+			BC = "North East VIC",
+			BD = "North West VIC",
+			CA = "Metro QLD",
+			CB = "Central Coast QLD",
+			CC = "North Coast QLD",
+			CD = "Inland QLD",
+			DA = "Metro SA",
+			DB = "South Coast SA",
+			DC = "Inland SA",
+			DD = "West Coast SA",
+			EA = "West Coast WA",
+			EB = "North WA",
+			EC = "South WA",
+			FA = "South TAS",
+			FB = "North East TAS",
+			FC = "North West TAS",
+			GA = "North Coast NT",
+			GB = "Central NT"
+    )
+  ) %>%
+  select(month, everything())
+# Show first 10 rows of data
 tourism
 ```
 
+## Australian tourism data
+
+
+```{r tourism_plots, include=FALSE, fig.width=12, fig.height=5}
+p1 <- tourism %>% 
+  summarise(visitors = sum(visitors)) %>%
+  autoplot(visitors) +
+  ylab("Overnight trips") + xlab("Time") +
+  scale_y_log10() +
+  ggtitle("Total domestic travel: Australia")
+p2 <- tourism %>% 
+  summarise(visitors = sum(visitors)) %>%
+  gg_season(visitors, labels='right') +
+  ylab("Overnight trips") +
+  ggtitle("Total domestic travel: Australia") +
+  scale_y_log10() 
+p3 <- tourism %>%
+  group_by(state) %>%
+  summarise(visitors = sum(visitors)) %>%
+  autoplot(visitors) +
+  ylab("Overnight trips") +
+  scale_y_log10() +
+  ggtitle("Total domestic travel: by state")
+p4 <- tourism %>%
+  filter(state=="NSW") %>%
+  group_by(zone) %>%
+  summarise(visitors = sum(visitors)) %>%
+  autoplot(visitors) +
+  ylab("Overnight trips") +
+  scale_y_log10() +
+  ggtitle("Total domestic travel: NSW by zone")
+p5 <- tourism %>%
+  filter(zone=="South NSW") %>%
+  autoplot(visitors) +
+  ylab("Overnight trips") +
+  scale_y_log10() +
+  ggtitle("Total domestic travel: South NSW by region")
+aligned_plots <- align_patches(p1, p2, p3, p4, p5)
+for(i in seq_along(aligned_plots)) {
+  pdf(paste0("./figs/tourism",i,".pdf"), width=12*.8, height=5*.8)
+  print(aligned_plots[[i]])
+  crop::dev.off.crop()
+}
+```
+
+\only<1>{\placefig{0.3}{1.7}{width=15.5cm}{tourism1}}
+\only<2>{\placefig{0.3}{1.7}{width=15.5cm}{tourism2}}
+\only<3>{\placefig{0.3}{1.7}{width=15.5cm}{tourism3}}
+\only<4>{\placefig{0.3}{1.7}{width=15.5cm}{tourism4}}
+\only<5>{\placefig{0.3}{1.7}{width=15.5cm}{tourism5}}
 
 ## Hierarchical time series
-\fontsize{13}{14}\sf
 
 A \alert{\textbf{hierarchical time series}} is a collection of several time series that are linked together in a hierarchical structure.
 
+\begin{center}
 \begin{minipage}{9.6cm}
 \begin{block}{}
 \begin{tikzpicture}
@@ -143,17 +200,13 @@ A \alert{\textbf{hierarchical time series}} is a collection of several time seri
 \end{tikzpicture}
 \end{block}
 \end{minipage}
-
-\pause\alert{Examples}\vspace*{-0.2cm}
-
- * PBS sales by ATC groups
- * Tourism demand by states, zones, regions
+\end{center}
 
 ## Grouped time series
-\fontsize{13}{14}\sf
 
 A \alert{\textbf{grouped time series}} is a collection of time series that can be grouped together in a number of non-hierarchical ways.
 
+\vspace*{-0.2cm}\begin{center}
 \begin{minipage}{9.2cm}
 \begin{block}{}
 \begin{tikzpicture}[level distance=1.5cm]
@@ -186,13 +239,14 @@ A \alert{\textbf{grouped time series}} is a collection of time series that can b
 \end{tikzpicture}
 \end{block}
 \end{minipage}
+\end{center}
 
-\pause\alert{Examples}
+\pause\alert{Examples}\vspace*{-0.2cm}
 
  * Tourism by state and purpose of travel
  * Retail sales by product groups/sub groups, and by countries/regions
 
-# Forecast reconciliation
+# Forecast reconciliation using projections
 
 ## The problem
 \fontsize{13}{14}\sf
@@ -444,41 +498,35 @@ Let $\psi$ be a mapping, $\psi:\mathbb{R}^n\rightarrow\mathfrak{s}$.  $\tilde{\b
 
 ## Linear reconciliation
 
-\begin{textblock}{9}(0.2,1.3)\fontsize{13}{14}\sf
-\begin{block}{}
+\begin{textblock}{9}(0.2,1.25)\fontsize{13}{14}\sf
+\begin{alertblock}{}
 If $\psi$ is a linear function and $\bm{G}$ is some matrix, then
 $$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
-\end{block}\vspace*{-0.3cm}
+\end{alertblock}\vspace*{-0.4cm}
 \begin{itemize}
 \item $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T+h|T}$ to get bottom-level forecasts.
 \item $\bS$ creates linear combinations.
+\item e.g., OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
 \end{itemize}
 \end{textblock}
 
-\only<2->{
-  \begin{textblock}{9}(0.2,5.4)
-  \begin{block}{}
-  e.g., OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
-  \end{block}
-  \end{textblock}
-}
 \only<2->{
 \placefig{9.4}{-0.5}{width=6.6cm}{fig3}
 }
 
 \only<3>{
-  \begin{textblock}{9}(0.2,6.3)
-  \begin{alertblock}{Projections}
+  \begin{textblock}{9}(0.2,6.)
+  \begin{block}{Projections}
   Suppose $\bm{S}\bm{G}$ is a projection onto $\mathfrak{s}$, then\fontsize{12}{13}\sf
   \begin{itemize}
   \item Coherent base forecasts are unchanged.
   \item Unbiased base forecasts remain unbiased.
   \end{itemize}
-  \end{alertblock}
+  \end{block}
   \end{textblock}
 }
 \only<3>{
-  \begin{textblock}{6.6}(9.2,5.5)\fontsize{12}{12}\sf
+  \begin{textblock}{6.6}(9.2,6.5)\fontsize{12}{12}\sf
   \begin{itemize}
   \item Orthogonal projections lead to smallest possible adjustments of base forecasts.
   \end{itemize}
@@ -486,13 +534,13 @@ $$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
 }
 
 \only<4>{
-  \begin{textblock}{9}(0.2,6.3)
-  \begin{alertblock}{Distance reducing property}
+  \begin{textblock}{9}(0.2,6)
+  \begin{block}{Distance reducing property}
   If $\bm{S}\bm{G}$ is an orthogonal projection onto $\mathfrak{s}$ then:
   \begin{equation*}
     \|\bm{y}_{t+h}-\tilde{\bm{y}}_{t+h|t}\|\le\|\bm{y}_{t+h}-\hat{\bm{y}}_{t+h|t}\|.
   \end{equation*}
-  \end{alertblock}
+  \end{block}
   \end{textblock}
 }
 
@@ -506,7 +554,7 @@ $$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
   \end{textblock}
 }
 
-## Oblique projections
+## Linear projections
 
 \begin{textblock}{5}(6,0)
 \begin{block}{}
@@ -527,10 +575,10 @@ $$
 \end{alertblock}
 \end{textblock}
 
-\only<2>{\placefig{9.7}{1.5}{width=7.4cm}{InsampDir_1_George}}
-\only<3>{\placefig{9.7}{1.5}{width=7.4cm}{InsampDir_2_George}}
-\only<4>{\placefig{9.7}{1.5}{width=7.4cm}{OrthProj_George}}
-\only<5>{\placefig{9.7}{1.5}{width=7.4cm}{ObliqProj_George}}
+\only<2>{\placefig{9.7}{1.5}{width=6.2cm}{InsampDir_1_George}}
+\only<3>{\placefig{9.7}{1.5}{width=6.2cm}{InsampDir_2_George}}
+\only<4>{\placefig{9.7}{1.5}{width=6.2cm}{OrthProj_George}}
+\only<5>{\placefig{9.7}{1.5}{width=6.2cm}{ObliqProj_George}}
 
 \only<2->{
   \begin{textblock}{9}(.7,6)
@@ -544,7 +592,7 @@ $$
 }
 
 \only<4->{
-  \begin{textblock}{5}(10,7.3)
+  \begin{textblock}{5}(10,7.6)
   \begin{block}{}
   \only<4>{Orthogonal projection}
   \only<5>{Oblique projection}
@@ -554,194 +602,36 @@ $$
 
 ## Linear projections
 
-\begin{textblock}{9.2}(.5,1.2)
+\begin{textblock}{5}(6,0)
 \begin{block}{}
+\centerline{$\tilde{\by}_{T+h|T}=\bS\bm{G}\hat{\by}_{T+h|T}$}
+\end{block}
+\end{textblock}
+
+\begin{textblock}{9.4}(.5,1.2)
+\begin{alertblock}{Reconciliation method \hspace*{0.5cm} $\bm{G}$}
 \begin{tabular}{ll}
-  \textbf{Reconciliation method} & $\bm{G}$ \\
-  \midrule
   OLS             & $(\bm{S}'\bm{S})^{-1}\bm{S}'$ \\
   WLS             & $(\bm{S}'\bm{\Lambda}\bm{S})^{-1}\bm{S}'\bm{\Lambda}$ \\
   MinT(Sample)    & $(\bm{S}'\hat{\bm{W}}_{\text{sam}}^{-1}\bm{S})^{-1}\bm{S}' \hat{\bm{W}}_{\text{sam}}^{-1}$  \\
-  MinT(Shrink)    & $(\bm{S}'\hat{\bm{W}}_{\text{shr}}^{-1}\bm{S})^{-1}\bm{S}' \hat{\bm{W}}_{\text{shr}}^{-1}$  \\
+  MinT(Shrink)\hspace*{2cm}    & $(\bm{S}'\hat{\bm{W}}_{\text{shr}}^{-1}\bm{S})^{-1}\bm{S}' \hat{\bm{W}}_{\text{shr}}^{-1}$  \\
 \end{tabular}
-\end{block}
+\end{alertblock}
 \end{textblock}
-\begin{textblock}{14}(.2,5.3)\fontsize{13}{14}\sf
+\begin{textblock}{14}(.2,5.1)\fontsize{13}{15}\sf
 \begin{itemize}
 \item $\bm{\Lambda}$ is diagonal matrix
 \item $\hat{\bm{W}}_{\text{sam}}$ is sample estimate of the residual covariance matrix
-\item $\hat{\bm{W}}_{\text{shr}}$ is shrinkage estimator $\tau \textrm{diag}(\hat{\bm{W}}_{\text{sam}})+(1-\tau)\hat{\bm{W}}_{\text{sam}}$ where $\tau = \displaystyle\frac{\sum_{i \neq j}\hat{\var}(\hat{\sigma}_{ij})}{\sum_{i \neq j}{\hat{\sigma}}^2_{ij}}$ and $\sigma_{ij}$ denotes the $(i,j)$th element of $\hat{\bm{W}}_{\text{sam}}$.
+\item $\hat{\bm{W}}_{\text{shr}}$ is shrinkage estimator $\tau \text{diag}(\hat{\bm{W}}_{\text{sam}})+(1-\tau)\hat{\bm{W}}_{\text{sam}}$ where $\tau = \displaystyle\frac{\sum_{i \neq j}\hat{\var}(\hat{\sigma}_{ij})}{\sum_{i \neq j}{\hat{\sigma}}^2_{ij}}$ and $\sigma_{ij}$ denotes the $(i,j)$th element of $\hat{\bm{W}}_{\text{sam}}$.
 \end{itemize}
 \end{textblock}
 
-\begin{textblock}{5}(10.7,1.2)
-\begin{alertblock}{}
-These all assume that $\bm{W}_h = k_h \bm{W}_1$ to simplify computations.
-\end{alertblock}
+\begin{textblock}{5}(10.3,3.35)
+\begin{block}{}
+These approximate MinT by assuming $\bm{W}_h = k_h \bm{W}_1$.
+\end{block}
 \end{textblock}
 
-## To add from geometry paper
-
-* Tourism example from geometry paper (not bias section)
-
-
-# Example: Australian tourism
-
-## Example: Australian tourism
-\fontsize{12}{13}\sf
-
-```{r fctourism}
-tourism_agg <- tourism %>%
-  aggregate_key(Purpose * (State / Region),
-    Trips = sum(Trips)
-  )
-fc <- tourism_agg %>%
-  filter(Quarter <= yearquarter("2015 Q4")) %>%
-  model(ets = ETS(Trips)) %>%
-  reconcile(ets_adjusted = min_trace(ets)) %>%
-  forecast(h = "2 years")
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism2, dependson='fctourism'}
-fc %>%
-  filter(is_aggregated(Purpose) & is_aggregated(State)) %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism3, dependson='fctourism'}
-fc %>%
-  filter(is_aggregated(Purpose) & State == "Victoria" &
-    is_aggregated(Region)) %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism4, dependson='fctourism'}
-fc %>%
-  filter(is_aggregated(Purpose) & Region == "Melbourne") %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism5, dependson='fctourism'}
-fc %>%
-  filter(is_aggregated(Purpose) & Region == "Snowy Mountains") %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism6, dependson='fctourism'}
-fc %>%
-  filter(Purpose == "Holiday" & Region == "Barossa") %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism7, dependson='fctourism'}
-fc %>%
-  filter(is_aggregated(Purpose) & Region == "MacDonnell") %>%
-  autoplot(tourism_agg, level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{12}{12.5}\sf
-
-```{r fctourismcomb}
-fc <- tourism_agg %>%
-  filter(Quarter <= yearquarter("2015 Q4")) %>%
-  model(
-    ets = ETS(Trips),
-    arima = ARIMA(Trips)
-  ) %>%
-  mutate(
-    comb = (ets + arima) / 2
-  ) %>%
-  reconcile(
-    ets_adj = min_trace(ets),
-    arima_adj = min_trace(arima),
-    comb_adj = min_trace(comb)
-  ) %>%
-  forecast(h = "2 years")
-```
-
-## Forecast evaluation
-\fontsize{10}{11}\sf
-
-```{r fcaccuracy, dependson='fctourismcomb'}
-fc %>% accuracy(tourism_agg)
-```
-
-## Forecast evaluation
-\fontsize{12}{13}\sf
-
-```{r fcaccuracy2, dependson='fctourismcomb'}
-fc %>%
-  accuracy(tourism_agg) %>%
-  group_by(.model) %>%
-  summarise(MASE = mean(MASE)) %>%
-  arrange(MASE)
-```
-
-## Creating aggregates
-\fontsize{7}{7}\sf
-
-```{r pbs_aggregate}
-PBS %>%
-  aggregate_key(ATC1 / ATC2, Scripts = sum(Scripts)) %>%
-  filter(Month == yearmonth("1991 Jul")) %>%
-  print(n = 18)
-```
-
-## Creating aggregates
-\fontsize{8}{8}\sf
-
-```{r tourism_aggregate}
-tourism %>%
-  aggregate_key(Purpose * (State / Region), Trips = sum(Trips)) %>%
-  filter(Quarter == yearquarter("1998 Q1")) %>%
-  print(n = 15)
-```
-
-## Creating aggregates
-\fontsize{13}{15}\sf
-
- * Similar to `summarise()` but using the key structure
- * A grouped structure is specified using `grp1 * grp2`
- * A nested structure is specified via `parent / child`.
- * Groups and nesting can be mixed:
-
-    ```r
-    (country/region/city) * (brand/product)
-    ```
-
- * All possible aggregates are produced.
- * These are useful when forecasting at different levels of aggregation.
-
-
-## Forecast reconciliation
-\fontsize{9}{10}\sf
-
-```{r tourismets_reconciled, message=FALSE}
-tourism %>%
-  aggregate_key(Purpose * (State / Region), Trips = sum(Trips)) %>%
-  model(ets = ETS(Trips)) %>%
-  reconcile(ets_adjusted = min_trace(ets)) %>%
-  forecast(h = 2)
-```
 
 # Probabilistic forecast reconciliation
 
@@ -769,40 +659,272 @@ The reconciled probability measure of $\hat{\nu}$ wrt $\psi(.)$ is such that
 
 ## Construction of reconciled distributions
 
-### Reconciled density of bottom-level
-
+\begin{block}{Reconciled density of bottom-level}
 Density of bottom-level series under reconciled distribution is
-\[
-  \tilde{f}_{\bm{b}}(\bm{b})=|\bm{G}^*|\int \hat{f}(\bm{G}^{-}\bm{b}+\bm{G}_\perp \bm{a})d\bm{a}\,,
-\]
-
-  * $\hat{f}$ is density of incoherent base probabilistic forecast
-  * $\bm{G^-}$ is $n\times m$ generalised inverse of $\bm{G}$ st $\bm{G}\bm{G}^-=\bm{I}$
-  * $\bm{G_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{G}$ st $\bm{G}\bm{G}_\perp=\bm{0}$
-  * $\bm{G}^*=\left(\bm{G}^-\,\vdots\,\bm{G}_\perp\right)$, and $\bm{b}$ and $\bm{a}$ are obtained via\newline the change of variables $\bm{y}=\bm{G}^*\begin{pmatrix}\bm{b}\\\bm{a}\end{pmatrix}$
+$$
+  \tilde{f}_{\bm{b}}(\bm{b})=|\bm{G}^*|\int \hat{f}(\bm{G}^{-}\bm{b}+\bm{G}_\perp \bm{a})d\bm{a}
+$$
+\vspace*{-0.5cm}\begin{itemize}
+\item $\hat{f}$ is density of incoherent base probabilistic forecast
+\item $\bm{G^-}$ is $n\times m$ generalised inverse of $\bm{G}$ st $\bm{G}\bm{G}^-=\bm{I}$
+\item $\bm{G_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{G}$ st $\bm{G}\bm{G}_\perp=\bm{0}$
+\item $\bm{G}^*=\left(\bm{G}^-\,\vdots\,\bm{G}_\perp\right)$, and $\bm{b}$ and $\bm{a}$ are obtained via\newline the change of variables $\bm{y}=\bm{G}^*\begin{pmatrix}\bm{b}\\\bm{a}\end{pmatrix}$
+\end{itemize}
+\end{block}
+\vspace*{10cm}
 
 ## Construction of reconciled distributions
 
-### Reconciled density of full hierarchy
-
+\begin{block}{Reconciled density of full hierarchy}\fontsize{14}{15}\sf
 Density of full hierarchy under reconciled distribution is
-\[
+$$
   \tilde{f}_{\bm{y}}(\bm{y}) =
   |\bm{S}^*| \tilde{f}_{\bm{b}}({\bm{S}^-\bm{y}})
-  \mathbb{1}\{\bm{y}\in\mathfrak{s}\}\,,
-\]
-
-  * $\bm{S}^*=\begin{pmatrix}
+  \mathbb{1}\{\bm{y}\in\mathfrak{s}\}
+$$
+\vspace*{-0.5cm}\begin{itemize}
+\item $\bm{S}^*=\begin{pmatrix}
   \bm{S}^-\\
   \bm{S}'_\perp
   \end{pmatrix}$
-  * $\bm{S^-}$ is $m\times n$ generalised inverse of $\bm{S}$ such that $\bm{S}^-\bm{S}=\bm{I}$,
-  * $\bm{S_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{S}$ such that $\bm{S}'_\perp\bm{S}=\bm{0}$.
+\item $\bm{S^-}$ is $m\times n$ generalised inverse of $\bm{S}$ such that $\bm{S}^-\bm{S}=\bm{I}$,
+\item $\bm{S_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{S}$ such that $\bm{S}'_\perp\bm{S}=\bm{0}$.
+\end{itemize}
+\end{block}\pause
+
+\begin{alertblock}{Gaussian reconciliation}
+If the incoherent base forecasts are $\text{N}(\hat{\bm{\mu}}, \hat{\bm{\Sigma}})$,\newline
+then the reconciled density is $\text{N}(\bm{S}\bm{G}\hat{\bm{\mu}}, \bm{S}\bm{G}\hat{\bm{\Sigma}}\bm{G}'\bm{S}')$.
+\end{alertblock}
+
+## Simulation from a reconciled distribution
+
+\begin{block}{}
+Suppose that $\left(\hat{\bm{y}}^{[1]},\ldots,\hat{\bm{y}}^{[L]}\right)$ is a sample drawn from an incoherent probability measure $\hat{\nu}$. Then $\left(\tilde{\bm{y}}^{[1]},\ldots,\tilde{\bm{y}}^{[L]}\right)$ where $\tilde{\bm{y}}^{[\ell]}:=\psi(\hat{\bm{y}}^{[\ell]})$ for $\ell=1,\ldots,L$, is a sample drawn from the reconciled probability measure $\tilde{\nu}$.
+\end{block}
+
+* So reconciling sample paths from incoherent distributions works.
+
+\vspace*{10cm}
+
+# Evaluating probabilistic forecasts
+
+## Evaluating probabilistic forecasts
+
+```{r setup_tourism_example, include=FALSE}
+library(gganimate)
+set.seed(2020 - 08 - 25)
+
+# Total Australian tourism numbers
+aus_tourism <- tourism %>%
+  summarise(visitors = sum(visitors))
+# Training data
+train <- aus_tourism %>%
+  filter(year(month) <= 2016)
+# Fit ETS model
+fit <- train %>%
+  model(arima = ARIMA(visitors))
+# Future sample paths
+future <- fit %>%
+  generate(times = 200, h = "1 year") %>%
+  as_tibble() %>%
+  mutate(modrep = paste0(.model, .rep))
+# Deciles
+qf <- fit %>%
+  generate(times = 1000, h = "1 year") %>%
+  as_tibble() %>%
+  group_by(month) %>%
+  summarise(
+    qs = quantile(.sim, seq(from = 0.1, to = 0.9, by = 0.1)),
+    prob = seq(from = 0.1, to = 0.9, by = 0.1)
+  )
+# Colors of sample paths
+colours <- tibble(modrep = unique(future$modrep)) %>%
+  mutate(col = sample(rainbow(200)))
+future <- future %>% left_join(colours, by = "modrep")
+
+# Plot of deciles
+p1 <- train %>%
+  autoplot(visitors) +
+  labs(
+    x = "Month",
+    y = "Total visitors",
+    title = "Australian domestic tourism"
+  ) +
+  guides(colour = FALSE, level = FALSE) +
+  ylim(min(train$visitors, future$.sim, na.rm = TRUE), max(train$visitors, future$.sim, na.rm = TRUE))
+```
+
+
+```{r tourism_data_again, fig.width=10, fig.height=5}
+p1 
+```
+
+## Evaluating probabilistic forecasts
+
+```{r eval2, fig.width=10, fig.height=5}
+p1 <- p1 +
+  annotate("label", x=as.Date("2017-06-01"), y=6000, label="ARIMA futures", col='#888888')
+p1 +
+  geom_line(
+    data = filter(future, as.numeric(.rep) <= 5),
+    aes(y = .sim, group = modrep, col=col),
+  )
+```
+
+## Evaluating probabilistic forecasts
+
+```{r eval3, fig.width=10, fig.height=5}
+# Less data shown
+p1$data <- train %>% filter(year(month) >= 2015)
+p1 +
+  geom_line(
+    data = filter(future, as.numeric(.rep) <= 5),
+    aes(y = .sim, group = modrep, col=col),
+  )
+```
+
+## Evaluating probabilistic forecasts
+
+```{r eval4, fig.width=10, fig.height=5}
+p1 +
+  geom_line(
+    data = future,
+    aes(y = .sim, group = modrep, col=col),
+  )
+```
+
+## Evaluating probabilistic forecasts
+
+```{r eval5, fig.width=10, fig.height=5}
+p1 <- p1 +
+  geom_line(
+    data = future,
+    aes(y = .sim, group = modrep),
+    color = "gray"
+  )
+p1
+```
+
+## Evaluating probabilistic forecasts
+
+```{r eval6, fig.width=10, fig.height=5}
+p1 <- p1 +
+  geom_line(
+    data = qf,
+    mapping = aes(x = month, y = qs, group = prob),
+    colour = "#0063A7"
+  ) +
+  annotate("label", x=as.Date("2017-06-01"), y=11300, label="Deciles", col="#0063A7")
+p1
+```
+
+
+## Evaluating probabilistic forecasts
+
+```{r eval7, fig.width=10, fig.height=5}
+p1 <- p1 +
+  geom_line(aes(y = visitors), data = aus_tourism %>% filter(year(month) >= 2015)) 
+p1
+pdf("./figs/deciles.pdf", height=5, width=10)
+p1
+crop::dev.off.crop()
+```
+
+
+## Evaluating probabilistic forecasts
+
+```{r pinball, eval=FALSE, include=FALSE, fig.show='animate', interval=1/10, message=FALSE, fig.height=3, fig.width=5.5}
+# Set eval=TRUE to generate the plots
+# Then set eval=FALSE as we only need to do this once.
+library(gganimate)
+prob <- seq(0.05, 0.95, by = 0.05)
+df <- expand.grid(
+    error = c(-10, 0, 10),
+    p = c(prob, rev(head(prob, -1)[-1]))
+  ) %>%
+  mutate(
+    state = rep(seq(length(p) / 3), rep(3, length(p) / 3)),
+    qpt = 2 * p * error * (error > 0) - 2 * (1 - p) * error * (error < 0)
+  )
+labels <- df %>%
+  select(p, state) %>%
+  distinct() %>%
+  mutate(label = paste0("p = ", sprintf("%.2f", p)))
+df %>% ggplot(aes(x = error, y = qpt)) +
+  geom_line(aes(group = state), colour = "red") +
+  labs(
+    x = latex2exp::TeX("Error: $y_t - f_{p,t}$"),
+    y = latex2exp::TeX("Q_{p,t}")
+  ) +
+  geom_label(data = labels, aes(x = 0, y = 17, label = label)) +
+  transition_states(state)
+```
+
+\fontsize{12}{13}\sf
+\begin{textblock}{8}(0.2,1.2)
+\begin{alertblock}{}\vspace*{-0.3cm}
+\begin{align*}
+f_{p,t} &= \text{quantile forecast with prob. $p$ at time $t$.}\\
+y_{t} &= \text{observation at time $t$}
+\end{align*}
+\end{alertblock}\vspace*{-0.3cm}
+\begin{block}{Quantile score}\vspace*{-0.1cm}
+$$
+  Q_{p,t} = \begin{cases}
+  2(1 - p) \big|y_t - f_{p,t}\big|, & \text{if $y_{t} < f_{p,t}$}\\
+  2p \big|y_{t} - f_{p,t}\big|, & \text{if $y_{t} \ge f_{p,t}$} \end{cases}
+$$
+\end{block}
+\end{textblock}
+\begin{textblock}{8}(0.2,5.)
+\begin{itemize}\itemsep=0cm\parskip=0cm
+\item Low $Q_{p,t}$ is good
+\item Multiplier of 2 often omitted,\newline but useful for interpretation
+\item $Q_{p,t}$ like absolute error,\newline weighted to account for likely exceedance
+\item Average $Q_{p,t}$ over $p$ = \newline CRPS (Continuous Rank Probability Score)
+\end{itemize}
+\end{textblock}
+\placefig{8.7}{1.4}{width=7.3cm}{deciles.pdf}
+
+\begin{textblock}{1}(8.5,5.1)
+\animategraphics[loop,autoplay,width=7.4cm]{10}{Macquarie_2020_files/figure-beamer/pinball-}{1}{100}
+\end{textblock}
+
+## Evaluating probabilistic forecasts
+
+### Continuous Rank Probability Score 
+
+ * For univariate forecasts
+ * Average $Q_{p,t}$ over $p$.
+ * E
+
+### Energy score
+
+ * For multivariate forecasts
+ * $\text{ES}(P,\bm{\omega}) = \E_{P} ||{\bm{y}}-\bm{\omega}||^\alpha -\frac{1}{2}\E_{P}||\bm{y}-\bm{y}^*||^\alpha, \,\, \alpha \in (0,2]$
+ * Approximate via simulations
+
+
+Other scoring rules:
+
+ * Scoring rule: $K(P,y)$ 
+
+**Proper scoring rule**: optimized when true forecast distribution is used.
+
+\begin{block}{}\centering
+\begin{tabular}{llp{4.4cm}}
+    \bfseries Scoring Rule &
+    \bfseries Coherent v Incoherent &
+    \bfseries Coherent v Coherent\\
+    \midrule
+    Log Score & Not proper & Ordering preserved if\par compared using\par bottom-level only\\
+    Energy Score & Proper & Full hierarchy should\par be used
+\end{tabular}
+\end{block}
 
 
 ## To add from probabilistic paper
 
- * Theorem 3.5
- * Table 2
  * Score optimal reconciliation
  * Electricity example
