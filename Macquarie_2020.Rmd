@@ -18,10 +18,10 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE,
+  echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE,
   dev.args = list(pointsize = 11)
 )
-options(digits = 3, width = 60)
+options(digits = 3, width = 88)
 library(fpp3)
 library(patchwork)
 ```
@@ -52,10 +52,10 @@ library(patchwork)
 ```{r tourism, echo=FALSE}
 # Read csv file of monthly data
 OvernightTrips_Region <- readr::read_csv("OvernightTrips_2017.csv")[,-(1:3)] %>%
-  # Remove outlier from Adelaide Hills
+  # Replace outlier from Adelaide Hills
   mutate(
     `Adelaide Hills` = case_when(
-      `Adelaide Hills` > 80 ~ NA_real_,
+      `Adelaide Hills` > 80 ~ 10,
                        TRUE ~ `Adelaide Hills`
     )
   )
@@ -834,7 +834,7 @@ crop::dev.off.crop()
 
 ## Evaluating probabilistic forecasts
 
-```{r pinball, eval=FALSE, include=FALSE, fig.show='animate', interval=1/10, message=FALSE, fig.height=3, fig.width=5.5}
+```{r pinball, eval=FALSE, echo=FALSE, fig.show='animate', interval=1/10, message=FALSE, fig.height=3, fig.width=5.5}
 # Set eval=TRUE to generate the plots
 # Then set eval=FALSE as we only need to do this once.
 library(gganimate)
@@ -854,8 +854,8 @@ labels <- df %>%
 df %>% ggplot(aes(x = error, y = qpt)) +
   geom_line(aes(group = state), colour = "red") +
   labs(
-    x = latex2exp::TeX("Error: $y_t - f_{p,t}$"),
-    y = latex2exp::TeX("Q_{p,t}")
+    x = latex2exp::TeX("Error: $y_t - q_{p,t}$"),
+    y = latex2exp::TeX("S_{t}(p,y)")
   ) +
   geom_label(data = labels, aes(x = 0, y = 17, label = label)) +
   transition_states(state)
@@ -865,24 +865,24 @@ df %>% ggplot(aes(x = error, y = qpt)) +
 \begin{textblock}{8}(0.2,1.2)
 \begin{alertblock}{}\vspace*{-0.3cm}
 \begin{align*}
-f_{p,t} &= \text{quantile forecast with prob. $p$ at time $t$.}\\
+q_{p,t} &= \text{quantile forecast with prob. $p$ at time $t$.}\\
 y_{t} &= \text{observation at time $t$}
 \end{align*}
 \end{alertblock}\vspace*{-0.3cm}
 \begin{block}{Quantile score}\vspace*{-0.1cm}
 $$
-  Q_{p,t} = \begin{cases}
-  2(1 - p) \big|y_t - f_{p,t}\big|, & \text{if $y_{t} < f_{p,t}$}\\
-  2p \big|y_{t} - f_{p,t}\big|, & \text{if $y_{t} \ge f_{p,t}$} \end{cases}
+  S_t(p,y) = \begin{cases}
+  2(1 - p) \big|y_t - q_{p,t}\big|, & \text{if $y_{t} < q_{p,t}$}\\
+  2p \big|y_{t} - q_{p,t}\big|, & \text{if $y_{t} \ge q_{p,t}$} \end{cases}
 $$
 \end{block}
 \end{textblock}
 \begin{textblock}{8}(0.2,5.)
 \begin{itemize}\itemsep=0cm\parskip=0cm
-\item Low $Q_{p,t}$ is good
+\item Low $S_{t}$ is good
 \item Multiplier of 2 often omitted,\newline but useful for interpretation
-\item $Q_{p,t}$ like absolute error,\newline weighted to account for likely exceedance
-\item Average $Q_{p,t}$ over $p$ = \newline CRPS (Continuous Rank Probability Score)
+\item $S_{t}$ like absolute error,\newline weighted to account for likely exceedance
+\item Average $S_{t}(p,y)$ over $p$ = \newline CRPS (Continuous Rank Probability Score)
 \end{itemize}
 \end{textblock}
 \placefig{8.7}{1.4}{width=7.3cm}{deciles.pdf}
@@ -893,24 +893,34 @@ $$
 
 ## Evaluating probabilistic forecasts
 
-### Continuous Rank Probability Score 
+### Continuous Rank Probability Score (univariate forecsts)
 
- * For univariate forecasts
- * Average $Q_{p,t}$ over $p$.
- * E
+Forecast distribution $F_t$ and observation $y_t$.
+$$
+\text{CRPS}(F_t,y_t)~  = \int_{0}^1 S_{p,t}(p,y_t) dp ~  = ~\text{E}_F|Y-y_t|-\frac{1}{2}\text{E}_F|Y-Y^*|
+$$
 
-### Energy score
+ * $Y$ and $Y^*$ are iid draws from $F_t$.
+ * Optimal when $F_t$ is true distribution (i.e., it is a proper score)
 
- * For multivariate forecasts
- * $\text{ES}(P,\bm{\omega}) = \E_{P} ||{\bm{y}}-\bm{\omega}||^\alpha -\frac{1}{2}\E_{P}||\bm{y}-\bm{y}^*||^\alpha, \,\, \alpha \in (0,2]$
- * Approximate via simulations
+\pause
 
+### Energy score (multivariate forecasts)
 
-Other scoring rules:
+ * $\text{ES}(F_t,\bm{y}_t) = \E_{F} ||{\bm{Y}}-\bm{y}_t|| -\frac{1}{2}\E_{F}||\bm{Y}-\bm{Y}^*||$
 
- * Scoring rule: $K(P,y)$ 
+\pause
 
-**Proper scoring rule**: optimized when true forecast distribution is used.
+### Log score (multivariate forecasts)
+
+ * $\text{LS}(F_t, \bm{y}_t) = -\log f(\bm{y}_t)$
+
+## Evaluating probabilistic forecasts
+\vspace*{-0.1cm}
+
+\begin{alertblock}{Proper scoring rule}
+optimized when true forecast distribution is used.
+\end{alertblock}\pause\vspace*{-0.1cm}
 
 \begin{block}{}\centering
 \begin{tabular}{llp{4.4cm}}
@@ -918,8 +928,8 @@ Other scoring rules:
     \bfseries Coherent v Incoherent &
     \bfseries Coherent v Coherent\\
     \midrule
-    Log Score & Not proper & Ordering preserved if\par compared using\par bottom-level only\\
-    Energy Score & Proper & Full hierarchy should\par be used
+    Log Score & Not proper & $\bullet$ Ordering preserved\par\hspace*{0.3cm} if compared using\par\hspace*{0.3cm} bottom-level only\\
+    Energy Score & Proper & $\bullet$ Full hierarchy\par\hspace*{0.3cm} should be used. \par $\bullet$ Rankings may\par\hspace*{0.3cm} change otherwise.
 \end{tabular}
 \end{block}
 
@@ -928,3 +938,150 @@ Other scoring rules:
 
  * Score optimal reconciliation
  * Electricity example
+
+# Example: Australian tourism
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismdata, echo=TRUE}
+tourism
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismagg, echo=TRUE}
+tourism_agg <- tourism %>%
+  aggregate_key(state / zone / region, visitors = sum(visitors))
+```
+
+```{r tourismagg2, echo=FALSE}
+tourism_agg
+```
+
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismmodels, echo=TRUE}
+fit <- tourism_agg %>%
+  filter(year(month) <= 2015) %>%
+  model(ets = ETS(visitors)) 
+```
+
+```{r tourismmodels1, echo=FALSE}
+fit
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism, echo=TRUE}
+fc <- fit %>%
+  reconcile(ets_adjusted = min_trace(ets)) %>%
+  forecast(h = "2 years")
+```
+
+```{r fctourism1, echo=FALSE}
+fc
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism2, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(is_aggregated(state)) %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism3, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(state == "NSW" & is_aggregated(zone)) %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism4, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Melbourne") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism5, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Snowy Mountains") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism6, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Barossa") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism7, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "MacDonnell") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourismcomb, echo=TRUE}
+fc <- tourism_agg %>%
+  filter(year(month) <= 2015) %>%
+  model(
+    ets = ETS(visitors),
+    arima = ARIMA(visitors)
+  ) %>%
+  mutate(
+    comb = (ets + arima) / 2
+  ) %>%
+  reconcile(
+    ets_adj = min_trace(ets),
+    arima_adj = min_trace(arima),
+    comb_adj = min_trace(comb)
+  ) %>%
+  forecast(h = "2 years")
+```
+
+## Forecast evaluation
+\fontsize{10}{11}\sf
+
+```{r fcaccuracy, dependson='fctourismcomb', echo=TRUE}
+fc %>%  accuracy(
+  data = tourism_agg,
+    measures = list(crps = CRPS, ss=skill_score(CRPS))
+  )
+```
+
+## Forecast evaluation
+\fontsize{12}{13}\sf
+
+```{r fcaccuracy2, dependson='fctourismcomb', echo=TRUE}
+fc %>%
+  tourism_agg,
+    measures = list(crps = CRPS, ss=skill_score(CRPS))
+  ) %>%
+  group_by(.model) %>%
+  summarise(sspc = mean(ss) * 100, mase = mean(MASE)) %>%
+  arrange(sspc)
+```
+
