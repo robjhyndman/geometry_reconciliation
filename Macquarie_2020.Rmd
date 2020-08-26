@@ -51,7 +51,7 @@ library(patchwork)
 
 ```{r tourism, echo=FALSE}
 # Read csv file of monthly data
-OvernightTrips_Region <- readr::read_csv("OvernightTrips_2017.csv")[,-(1:3)] %>%
+OvernightTrips_Region <- readr::read_csv("tourism/OvernightTrips_2017.csv")[,-(1:3)] %>%
   # Replace outlier from Adelaide Hills
   mutate(
     `Adelaide Hills` = case_when(
@@ -933,11 +933,13 @@ optimized when true forecast distribution is used.
 \end{tabular}
 \end{block}
 
+## Score optimal reconciliation
 
-## To add from probabilistic paper
+Algorithm proposed by Panagiotelis et al (2020) for optimizing $\bm{G}$ using stochastic gradient descent to optimize Energy Score.
 
- * Score optimal reconciliation
- * Electricity example
+1. Compute base forecasts over a test set.
+2. Compute OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
+3. Iteratively update $\bm{G}$ using SGD with Adam method and ES objective over a test set
 
 # Example: Australian tourism
 
@@ -1062,26 +1064,192 @@ fc <- tourism_agg %>%
   forecast(h = "2 years")
 ```
 
-## Forecast evaluation
+## Example: Australian tourism
 \fontsize{10}{11}\sf
 
 ```{r fcaccuracy, dependson='fctourismcomb', echo=TRUE}
-fc %>%  accuracy(
-  data = tourism_agg,
-    measures = list(crps = CRPS, ss=skill_score(CRPS))
-  )
+fc %>%
+  accuracy(data = tourism_agg,
+           measures = list(crps = CRPS, ss=skill_score(CRPS)))
 ```
 
-## Forecast evaluation
-\fontsize{12}{13}\sf
+## Example: Australian tourism
+\fontsize{10}{11}\sf
 
 ```{r fcaccuracy2, dependson='fctourismcomb', echo=TRUE}
 fc %>%
-  tourism_agg,
-    measures = list(crps = CRPS, ss=skill_score(CRPS))
-  ) %>%
+  accuracy(tourism_agg,
+           measures = list(crps = CRPS, ss=skill_score(CRPS))) %>%
   group_by(.model) %>%
-  summarise(sspc = mean(ss) * 100, mase = mean(MASE)) %>%
+  summarise(sspc = mean(ss) * 100) %>%
   arrange(sspc)
 ```
+
+
+# Example: Australian electricity generation
+
+## Example: Australian electricity generation
+
+\begin{block}{Daily time series from \url{opennem.org.au}}
+\begin{enumerate}
+\item
+  Total = Renewable + Non-renewable
+\item
+  Renewable = Batteries + Hydro + Solar + Wind + Biomass\\
+  Non-Renewable = Coal + Gas + Distillate
+\item
+  Battery = Battery (Discharging) + Battery (Charging)\\
+  Solar = Solar (Rooftop) + Solar (Utility)\\
+  Coal = Black Coal + Brown Coal\\
+  Gas = Gas (OCGT) + Gas (CCGT) + Gas (Steam) + Gas (Recip)
+\end{enumerate}
+\end{block}
+
+$n=23$ series; $m=15$ bottom-level series.
+
+
+## Example: Australian electricity generation
+
+```{r include=FALSE}
+energy <- readr::read_csv('energy/daily.csv') %>%
+  head(-1)%>% #Remove last observation
+  select(date,contains(' -  GWh'))%>%
+  rename_all(~gsub(' -  GWh','',.x))%>%
+  mutate(date=as.Date(date),
+         Battery=rowSums(select(., contains("Battery"))),
+         Gas = rowSums(select(., contains("Gas"))),
+         Solar = rowSums(select(., contains("Solar"))),
+         Coal = rowSums(select(., contains("Coal"))),
+         `Hydro (inc. Pumps)` = Hydro + Pumps,
+         Renewable=Biomass+Hydro+Solar+Wind,
+         `non-Renewable`=Coal+Distillate+Gas,
+         Total=Renewable+`non-Renewable`+Battery+Pumps)%>%
+  pivot_longer(cols=-date,names_to = 'Source',values_to = 'Generation') %>%
+  as_tsibble(key = Source)
+```
+
+```{r selected, fig.width=12, fig.height=6}
+energy %>%
+  filter(
+    Source %in% c('Total', 'Wind', 'Solar', 'Distillate')
+  ) %>%
+  mutate(
+    Source = ordered(Source,
+            levels = c('Total','Wind','Solar','Distillate'))
+  ) %>%
+  ggplot(aes(x=date, y=Generation)) +
+  geom_line() +
+  facet_wrap(~Source, nrow = 4,  ncol = 1, scales = 'free_y')
+```
+
+## Example: Australian electricity generation
+
+\alert{Forecast evaluation}
+
+ * Rolling window of 140 days training data, and one-step-forecasts for 170 days test data.
+ * One-layer feed-forward neural network with up to 28 lags of target variable as inputs. 
+ * Implemented using `NNETAR()` function in `fable` package.
+ * Model could be improved with temperature predictor.
+ 
+## Example: Australian electricity generation
+
+\placefig{0.3}{1.5}{width=7.5cm, height=10cm}{densities}
+\begin{textblock}{6}(9,1.7)
+\begin{block}{Histogram of residuals:\\ 2 Oct 2019 -- 21 Jan 2020}
+Clearly non-Gaussian
+\end{block}
+\end{textblock}
+
+## Example: Australian electricity generation
+
+\placefig{0.3}{1.5}{width=7.7cm, height=10cm}{corr}
+
+\begin{textblock}{6}(9,1.7)
+\begin{block}{Correlations of residuals:\\ 2 Oct 2019 -- 21 Jan 2020}
+Blue = positive correlation. Red = negative correlation. Large = stronger correlations.
+\end{block}
+\end{textblock}
+
+
+## Example: Australian electricity generation
+
+\placefig{0.3}{1.5}{width=7.2cm, height=10cm}{meanenergyscore}
+
+\begin{textblock}{3.5}(2.5,1.4)\fontsize{12}{12.5}\sf
+\begin{block}{}
+Mean Energy score
+\end{block}
+\end{textblock}
+
+\begin{textblock}{7}(8.7,1.3)\fontsize{12}{12.5}\sf
+\begin{block}{Base residual assumptions}
+\begin{itemize}\itemsep=0cm\parskip=0cm
+\item Gaussian independent
+\item Gaussian dependent
+\item Non-Gaussian independent
+\item Non-Gaussian dependent
+\end{itemize}
+\end{block}\vspace*{-0.1cm}
+\begin{block}{Reconciliation methods}
+\begin{itemize}\itemsep=0cm\parskip=0cm
+\item Base
+\item BottomUp
+\item BTTH: Ben Taieb, Taylor, Hyndman
+\item JPP: Jeon, Panagiotelis, Petropoulos
+\item OLS
+\item MinT(Shrink)
+\item Score Optimal Reconciliation
+\end{itemize}
+\end{block}
+\end{textblock}
+
+
+## Example: Australian electricity generation
+
+\placefig{0.3}{1.5}{width=6.cm, height=10cm}{nemenyi_ig}
+
+\placefig{8.3}{1.5}{width=6.cm, height=10cm}{nemenyi_jb}
+
+\begin{textblock}{7}(0.2,7.)\fontsize{11}{12}\sf
+\begin{block}{Nemenyi test for different scores}
+Base forecasts are independent and Gaussian.
+\end{block}
+\end{textblock}
+
+\begin{textblock}{7}(8.8,7.)\fontsize{11}{12}\sf
+\begin{block}{Nemenyi test for different scores}
+Base forecasts are obtained by jointly bootstrapping residuals.
+\end{block}
+\end{textblock}
+
+
+## Thanks
+
+\placefig{0.2}{1.5}{width=10cm, height=3.5cm}{george}
+\placefig{3.7}{1.5}{width=10cm, height=3.5cm}{tas}
+\placefig{8.}{1.5}{width=10cm, height=3.5cm}{mitch}
+\placefig{0.2}{5.3}{width=10cm, height=3.5cm}{hanlin}
+\placefig{3.7}{5.3}{width=10cm, height=3.5cm}{shanika}
+\placefig{8.}{5.3}{width=10cm, height=3.5cm}{puwasala}
+\placefig{12.2}{5.3}{width=10cm, height=3.5cm}{earowang}
+
+## More information
+\fontsize{18}{20}\sf
+
+ * Slides and papers: **robjhyndman.com**
+ * Packages: **tidyverts.org**
+ * Forecasting textbook using fable package: **OTexts.com/fpp3**
+
+\begin{textblock}{8}(7.6,4.8)
+\begin{alertblock}{Find me at ...}
+\href{https://twitter.com/robjhyndman}{\faicon{twitter} @robjhyndman}
+
+\href{https://github.com/robjhyndman}{\faicon{github}  @robjhyndman}
+
+\href{https://robjhyndman.com}{\faicon{home} robjhyndman.com}
+
+\href{mailto:rob.hyndman@monash.edu}{\faicon{envelope}  rob.hyndman@monash.edu}
+\end{alertblock}
+\end{textblock}
+\vspace*{10cm}
 
