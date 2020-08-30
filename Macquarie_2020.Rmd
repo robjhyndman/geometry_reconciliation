@@ -36,7 +36,7 @@ library(patchwork)
   \begin{itemize}\itemsep=0cm\parskip=0cm
     \item Monthly data on visitor night from 1998 -- 2017
     \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
-    \item Geographical hierarchy split by 
+    \item Geographical hierarchy split by
     \begin{itemize}
     \item 7 states
     \item 27 zones
@@ -121,18 +121,18 @@ tourism
 
 
 ```{r tourism_plots, include=FALSE, fig.width=12, fig.height=5}
-p1 <- tourism %>% 
+p1 <- tourism %>%
   summarise(visitors = sum(visitors)) %>%
   autoplot(visitors) +
   ylab("Overnight trips") + xlab("Time") +
   scale_y_log10() +
   ggtitle("Total domestic travel: Australia")
-p2 <- tourism %>% 
+p2 <- tourism %>%
   summarise(visitors = sum(visitors)) %>%
   gg_season(visitors, labels='right') +
   ylab("Overnight trips") +
   ggtitle("Total domestic travel: Australia") +
-  scale_y_log10() 
+  scale_y_log10()
 p3 <- tourism %>%
   group_by(state) %>%
   summarise(visitors = sum(visitors)) %>%
@@ -757,7 +757,7 @@ p1 <- train %>%
 
 
 ```{r tourism_data_again, fig.width=10, fig.height=5}
-p1 
+p1
 ```
 
 ## Evaluating probabilistic forecasts
@@ -824,7 +824,7 @@ p1
 
 ```{r eval7, fig.width=10, fig.height=5}
 p1 <- p1 +
-  geom_line(aes(y = visitors), data = aus_tourism %>% filter(year(month) >= 2015)) 
+  geom_line(aes(y = visitors), data = aus_tourism %>% filter(year(month) >= 2015))
 p1
 pdf("./figs/deciles.pdf", height=5, width=10)
 p1
@@ -969,7 +969,7 @@ tourism_agg
 ```{r tourismmodels, echo=TRUE}
 fit <- tourism_agg %>%
   filter(year(month) <= 2015) %>%
-  model(ets = ETS(visitors)) 
+  model(ets = ETS(visitors))
 ```
 
 ```{r tourismmodels1, echo=FALSE}
@@ -1147,10 +1147,10 @@ energy %>%
 \alert{Forecast evaluation}
 
  * Rolling window of 140 days training data, and one-step-forecasts for 170 days test data.
- * One-layer feed-forward neural network with up to 28 lags of target variable as inputs. 
+ * One-layer feed-forward neural network with up to 28 lags of target variable as inputs.
  * Implemented using `NNETAR()` function in `fable` package.
  * Model could be improved with temperature predictor.
- 
+
 ## Example: Australian electricity generation
 
 \placefig{0.3}{1.5}{width=7.5cm, height=10cm}{densities}
@@ -1228,10 +1228,11 @@ Base forecasts are obtained by jointly bootstrapping residuals.
 \placefig{0.2}{1.5}{width=10cm, height=3.5cm}{george}
 \placefig{3.7}{1.5}{width=10cm, height=3.5cm}{tas}
 \placefig{8.}{1.5}{width=10cm, height=3.5cm}{mitch}
-\placefig{0.2}{5.3}{width=10cm, height=3.5cm}{hanlin}
-\placefig{3.7}{5.3}{width=10cm, height=3.5cm}{shanika}
-\placefig{8.}{5.3}{width=10cm, height=3.5cm}{puwasala}
-\placefig{12.2}{5.3}{width=10cm, height=3.5cm}{earowang}
+\placefig{12.2}{1.5}{width=10cm, height=3.5cm}{earowang}
+\placefig{0.2}{5.3}{width=10cm, height=3.5cm}{roman}
+\placefig{3.7}{5.3}{width=10cm, height=3.5cm}{hanlin}
+\placefig{8.}{5.3}{width=10cm, height=3.5cm}{shanika}
+\placefig{12.2}{5.3}{width=10cm, height=3.5cm}{puwasala}
 
 ## More information
 \fontsize{18}{20}\sf
