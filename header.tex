@@ -1,9 +1,15 @@
 % Colors
 \setbeamercolor{description item}{fg=Orange}
 \definecolor{MonashBlue}{RGB}{73,129,175}
+% Colors
+\definecolor{DarkBrown}{RGB}{80,70,60}
+\setbeamercolor{description item}{fg=Orange}
+\setbeamercolor{block title alerted}{fg=white,bg=DarkBrown}
+\setbeamercolor{block title}{fg=white,bg=DarkBrown}
+\setbeamercolor{frametitle}{bg=DarkBrown,fg=white}
 
 % Packages
-\usepackage{amsmath, bm, amssymb, amsthm, mathrsfs}
+\usepackage{amsmath, bm, amssymb, amsthm, mathrsfs,pifont}
 \usepackage[bb=boondox]{mathalfa}
 \usepackage{paralist}
 \usepackage{natbib}
@@ -34,6 +40,7 @@
 \insertdate}
 \end{textblock}}
 
+\usepackage{framed}
 %\renewenvironment{Shaded}{\color{black}\begin{snugshade}\color{black}}{\end{snugshade}\columnbreak}
 
 % Tikz plots
@@ -54,9 +61,11 @@
 \def\bY{\bm{y}}
 \def\by{\bm{y}}
 \def\bS{\bm{S}}
+\def\bG{\bm{G}}
 \def\bSigma{\bm{\Sigma}}
 \def\Var{\text{Var}}
 \def\var{\text{Var}}
 \newcommand{\btwocol}{\begin{multicols}{2}}
 \newcommand{\etwocol}{\end{multicols}}
+
 

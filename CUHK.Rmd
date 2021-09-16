@@ -1,7 +1,7 @@
 ---
 title: "The geometry of forecast reconciliation"
 author: "Rob J Hyndman"
-date: "CUHK: 24 August 2021"
+date: "CUHK: 16 September 2021"
 fontsize: 14pt
 titlefontsize: 32pt
 classoption: aspectratio=169
@@ -29,13 +29,33 @@ library(fpp3)
 library(patchwork)
 ```
 
-# Hierarchical and grouped time series
+# Hierarchical forecasting
 
-## Australian tourism
-\placefig{-0.3}{1.4}{width=9.4cm, height=20cm, keepaspectratio=TRUE}{regions1_with_labels}
+## Australian tourism regions
 
-\only<2>{\begin{textblock}{6.4}(9.3,1.4)
-\begin{block}{}
+```{r ausmap, echo=FALSE, message=FALSE, width=20, height=20}
+library(sf)
+# Use Okabe-Ito color-blind friendly color palette
+state_colors <- c(
+  `New South Wales` = "#56b4e9",
+  `Victoria` = "#0072b2",
+  `Queensland` = "#009e73",
+  `South Australia` = "#f0e442",
+  `Northern Territory` = "#d55e00",
+  `Western Australia` = "#e69f00",
+  `Tasmania` = "#cc79a7",
+  `Australian Capital Territory` = "#cccccc"
+)
+read_sf("tourism/Tourism_Regions_2020.shp") %>%
+  rename(State = "STE_NAME16") %>%
+  ggplot() +
+  geom_sf(aes(fill = State), alpha = 0.8) +
+  theme_void() +
+  scale_fill_manual(values = state_colors)
+```
+
+\only<2>{\begin{textblock}{6.4}(9.1,1.4)
+\begin{block}{}%\fontsize{13}{14}\sf
   \begin{itemize}\itemsep=0cm\parskip=0cm
     \item Monthly data on visitor night from 1998 -- 2017
     \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
@@ -87,32 +107,32 @@ tourism <- hts::hts(
     ),
     zone = recode(zone,
       AA = "Metro NSW",
-			AB = "North Coast NSW",
-			AC = "South Coast NSW",
-			AD = "South NSW",
-			AE = "North NSW",
-			AF = "ACT",
-			BA = "Metro VIC",
-			BB = "West Coast VIC",
-			BC = "East Coast VIC",
-			BC = "North East VIC",
-			BD = "North West VIC",
-			CA = "Metro QLD",
-			CB = "Central Coast QLD",
-			CC = "North Coast QLD",
-			CD = "Inland QLD",
-			DA = "Metro SA",
-			DB = "South Coast SA",
-			DC = "Inland SA",
-			DD = "West Coast SA",
-			EA = "West Coast WA",
-			EB = "North WA",
-			EC = "South WA",
-			FA = "South TAS",
-			FB = "North East TAS",
-			FC = "North West TAS",
-			GA = "North Coast NT",
-			GB = "Central NT"
+      AB = "North Coast NSW",
+      AC = "South Coast NSW",
+      AD = "South NSW",
+      AE = "North NSW",
+      AF = "ACT",
+      BA = "Metro VIC",
+      BB = "West Coast VIC",
+      BC = "East Coast VIC",
+      BC = "North East VIC",
+      BD = "North West VIC",
+      CA = "Metro QLD",
+      CB = "Central Coast QLD",
+      CC = "North Coast QLD",
+      CD = "Inland QLD",
+      DA = "Metro SA",
+      DB = "South Coast SA",
+      DC = "Inland SA",
+      DD = "West Coast SA",
+      EA = "West Coast WA",
+      EB = "North WA",
+      EC = "South WA",
+      FA = "South TAS",
+      FB = "North East TAS",
+      FC = "North West TAS",
+      GA = "North Coast NT",
+      GB = "Central NT"
     )
   ) %>%
   select(month, everything())
@@ -122,42 +142,37 @@ tourism
 
 ## Australian tourism data
 
-
 ```{r tourism_plots, include=FALSE, fig.width=12, fig.height=5}
 p1 <- tourism %>%
   summarise(visitors = sum(visitors)) %>%
   autoplot(visitors) +
-  ylab("Overnight trips") + xlab("Time") +
+  ylab("Overnight trips (thousands)") + 
   scale_y_log10() +
   ggtitle("Total domestic travel: Australia")
 p2 <- tourism %>%
-  summarise(visitors = sum(visitors)) %>%
-  gg_season(visitors, labels='right') +
-  ylab("Overnight trips") +
-  ggtitle("Total domestic travel: Australia") +
-  scale_y_log10()
-p3 <- tourism %>%
   group_by(state) %>%
   summarise(visitors = sum(visitors)) %>%
   autoplot(visitors) +
-  ylab("Overnight trips") +
+  ylab("Overnight trips (thousands)") +
   scale_y_log10() +
   ggtitle("Total domestic travel: by state")
-p4 <- tourism %>%
+p3 <- tourism %>%
   filter(state=="NSW") %>%
   group_by(zone) %>%
   summarise(visitors = sum(visitors)) %>%
+  mutate(zone = paste0("NSW/",zone)) %>%
   autoplot(visitors) +
-  ylab("Overnight trips") +
+  ylab("Overnight trips (thousands)") +
   scale_y_log10() +
-  ggtitle("Total domestic travel: NSW by zone")
-p5 <- tourism %>%
+  ggtitle("Total domestic travel: NSW by zone") +
+  guides(colour = guide_legend(title = "state/zone"))
+p4 <- tourism %>%
   filter(zone=="South NSW") %>%
   autoplot(visitors) +
-  ylab("Overnight trips") +
+  ylab("Overnight trips (thousands)") +
   scale_y_log10() +
   ggtitle("Total domestic travel: South NSW by region")
-aligned_plots <- align_patches(p1, p2, p3, p4, p5)
+aligned_plots <- align_patches(p1, p2, p3, p4)
 for(i in seq_along(aligned_plots)) {
   pdf(paste0("./figs/tourism",i,".pdf"), width=12*.8, height=5*.8)
   print(aligned_plots[[i]])
@@ -169,7 +184,33 @@ for(i in seq_along(aligned_plots)) {
 \only<2>{\placefig{0.3}{1.7}{width=15.5cm}{tourism2}}
 \only<3>{\placefig{0.3}{1.7}{width=15.5cm}{tourism3}}
 \only<4>{\placefig{0.3}{1.7}{width=15.5cm}{tourism4}}
-\only<5>{\placefig{0.3}{1.7}{width=15.5cm}{tourism5}}
+
+## Hierarchical forecasting 20 years ago
+
+```{r pyramid, eval=FALSE, include=FALSE}
+pdf("figs/pyramid.pdf", width=15/2.54, height=15/2.54)
+plot(c(-1,1),c(0.1,1),type="n", bty="n", xlab="", ylab="",xaxt="n", yaxt="n")
+polygon(c(-1,1,0,-1),c(0,0,1,0), col=rgb(230,172,0,max=255), border=FALSE)
+abline(a=0.666,b=0,col="white",lwd=5)
+abline(a=0.333,b=0,col="white",lwd=5)
+text(0,0.8,"Top-down")
+text(0,0.5,"Middle-out")
+text(0,0.18,"Bottom-up")
+arrows(0,0.22,0,0.3,length=0.1,lwd=3,col="black")
+arrows(0,0.77,0,0.69,length=0.1,lwd=3,col="black")
+arrows(0,0.55,0,0.63,length=0.1,lwd=3,col="black")
+arrows(0,0.45,0,0.37,length=0.1,lwd=3,col="black")
+crop::dev.off.crop()
+system("pdfcrop figs/pyramid.pdf figs/pyramid.pdf")
+```
+
+\placefig{0.3}{1.5}{height=2.5cm, width=10cm, trim=0 0 180 0, clip=TRUE}{tourism1}
+\placefig{0.3}{4.}{height=2.5cm, width=10cm, trim=0 0 180 0, clip=TRUE}{tourism2}
+\placefig{0.3}{6.5}{height=2.5cm, width=10cm, trim=0 0 180 0, clip=TRUE}{tourism4}
+\placefig{6}{1.4}{width=7.8cm, height=7.8cm}{pyramid}
+
+
+# Point forecast reconciliation
 
 ## Hierarchical time series
 
@@ -249,8 +290,6 @@ A \alert{\textbf{grouped time series}} is a collection of time series that can b
  * Tourism by state and purpose of travel
  * Retail sales by product groups/sub groups, and by countries/regions
 
-# Forecast reconciliation using projections
-
 ## The problem
 \fontsize{13}{14}\sf
 \begin{alertblock}{}
@@ -259,9 +298,9 @@ How to produce \textbf{coherent} forecasts at all nodes?
 
 ### Old approaches (pre 2009)
 
-  * Bottom-up forecasting
   * Top-down forecasting
   * Middle-out forecasting
+  * Bottom-up forecasting
 
 \pause
 
@@ -507,7 +546,7 @@ If $\psi$ is a linear function and $\bm{G}$ is some matrix, then
 $$\tilde{\bm{y}}_{t+h|t}=\bm{S}\bm{G}\hat{\bm{y}}_{t+h|t}$$
 \end{alertblock}\vspace*{-0.4cm}
 \begin{itemize}
-\item $\bm{G}$ extracts and combines base forecasts $\hat{\by}_{T+h|T}$ to get bottom-level forecasts.
+\item $\bm{G}$ combines base forecasts $\hat{\by}_{T+h|T}$ to get bottom-level forecasts.
 \item $\bS$ creates linear combinations.
 \item e.g., OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
 \end{itemize}
@@ -635,6 +674,164 @@ These approximate MinT by assuming $\bm{W}_h = k_h \bm{W}_1$.
 \end{block}
 \end{textblock}
 
+# Example: Australian tourism
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismdata, echo=TRUE}
+tourism
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismagg, echo=TRUE}
+tourism_agg <- tourism %>%
+  aggregate_key(state/zone/region, visitors = sum(visitors))
+```
+
+```{r tourismagg2, echo=FALSE}
+tourism_agg
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismmodels, echo=TRUE}
+fit <- tourism_agg %>%
+  filter(year(month) <= 2015) %>%
+  model(ets = ETS(visitors))
+```
+
+```{r tourismmodels1, echo=FALSE}
+fit
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism, echo=TRUE}
+fc <- fit %>%
+  reconcile(
+    ols = min_trace(ets, method="ols"),
+    wlsv = min_trace(ets, method="wls_var"),
+    wlss = min_trace(ets, method="wls_struct"),
+    #mint_c = min_trace(ets, method="mint_cov"),
+    mint_s = min_trace(ets, method="mint_shrink"),
+  ) %>%
+  forecast(h = "2 years")
+```
+
+```{r fctourism1, echo=FALSE}
+fc
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism2, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(is_aggregated(state)) %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism3, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(state == "NSW" & is_aggregated(zone)) %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism4, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Melbourne") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism5, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Snowy Mountains") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism6, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc %>%
+  filter(region == "Barossa") %>%
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fcaccuracy, dependson='fctourismcomb', echo=TRUE}
+fc %>%
+  accuracy(data = tourism_agg,
+           measures = list(rmsse = RMSSE))
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fcaccuracy2, dependson='fctourismcomb', echo=TRUE}
+fc %>%
+  accuracy(tourism_agg,
+           measures = list(mase = MASE, rmsse = RMSSE)) %>%
+  group_by(.model) %>%
+  summarise(mase = mean(mase), rmsse = sqrt(mean(rmsse^2))) %>%
+  arrange(rmsse)
+```
+
+\only<2>{\begin{textblock}{7}(7,5)
+\begin{block}{}\fontsize{13}{14}\sf
+\begin{itemize}\tightlist
+\item Overall, every reconciliation method is better than the base ETS forecasts.
+\end{itemize}
+\end{block}
+\end{textblock}}
+
+## Example: Australian tourism
+\fontsize{8}{7}\sf
+
+```{r fcaccuracy3, dependson='fctourismcomb', echo=FALSE}
+fc %>%
+  accuracy(tourism_agg,
+           measures = list(mase = MASE, rmsse = RMSSE)) %>%
+  mutate(
+    level = case_when(
+      is_aggregated(state) ~ "National",
+      is_aggregated(zone) ~ "State",
+      is_aggregated(region) ~ "Zone",
+      TRUE ~ "Region"
+    ),
+    level = factor(level, levels=c("National","State","Zone","Region"))
+  ) %>%
+  group_by(.model, level) %>%
+  summarise(mase = mean(mase), rmsse = sqrt(mean(rmsse^2))) %>%
+  arrange(level, rmsse)
+```
+
+\only<2>{\begin{textblock}{7}(7,5)
+\begin{block}{}\fontsize{13}{14}\sf
+\begin{itemize}\tightlist
+\item OLS is best for all levels except national.
+\item Improvements due to reconciliation are greater at lower levels.
+\end{itemize}
+\end{block}
+\end{textblock}}
+
+
 
 # Probabilistic forecast reconciliation
 
@@ -686,29 +883,27 @@ $$
   \mathbb{1}\{\bm{y}\in\mathfrak{s}\}
 $$
 \vspace*{-0.5cm}\begin{itemize}
-\item $\bm{S}^*=\begin{pmatrix}
-  \bm{S}^-\\
-  \bm{S}'_\perp
-  \end{pmatrix}$
+\item $\bS^*=\begin{pmatrix} {\bS^-}' & \bS_\perp \end{pmatrix}'$
 \item $\bm{S^-}$ is $m\times n$ generalised inverse of $\bm{S}$ such that $\bm{S}^-\bm{S}=\bm{I}$,
 \item $\bm{S_\perp}$ is $n\times (n-m)$ orthogonal complement to $\bm{S}$ such that $\bm{S}'_\perp\bm{S}=\bm{0}$.
 \end{itemize}
-\end{block}\pause
-
-\begin{alertblock}{Gaussian reconciliation}
-If the incoherent base forecasts are $\text{N}(\hat{\bm{\mu}}, \hat{\bm{\Sigma}})$,\newline
-then the reconciled density is $\text{N}(\bm{S}\bm{G}\hat{\bm{\mu}}, \bm{S}\bm{G}\hat{\bm{\Sigma}}\bm{G}'\bm{S}')$.
-\end{alertblock}
-
-## Simulation from a reconciled distribution
-
-\begin{block}{}
-Suppose that $\left(\hat{\bm{y}}^{[1]},\ldots,\hat{\bm{y}}^{[L]}\right)$ is a sample drawn from an incoherent probability measure $\hat{\nu}$. Then $\left(\tilde{\bm{y}}^{[1]},\ldots,\tilde{\bm{y}}^{[L]}\right)$ where $\tilde{\bm{y}}^{[\ell]}:=\psi(\hat{\bm{y}}^{[\ell]})$ for $\ell=1,\ldots,L$, is a sample drawn from the reconciled probability measure $\tilde{\nu}$.
 \end{block}
 
-* So reconciling sample paths from incoherent distributions works.
+\only<2->{\begin{textblock}{7.7}(0.4,5.8)
+\begin{alertblock}{Gaussian reconciliation}
+If the incoherent base forecasts are $\text{N}(\hat{\bm{\mu}}, \hat{\bm{\Sigma}})$,
+then the reconciled density is $\text{N}(\bS\bG\hat{\bm{\mu}}, \bS\bG\hat{\bm{\Sigma}}\bG'\bS')$.
+\end{alertblock}
+\end{textblock}}
+
+\only<3>{\begin{textblock}{6.8}(8.8,5.8)
+\begin{alertblock}{Bootstrap reconciliation}
+Reconciling sample paths from incoherent distributions works.
+\end{alertblock}
+\end{textblock}}
 
 \vspace*{10cm}
+
 
 # Evaluating probabilistic forecasts
 
@@ -944,172 +1139,59 @@ Algorithm proposed by Panagiotelis et al (2020) for optimizing $\bm{G}$ using st
 2. Compute OLS reconciliation: $\bm{G} = (\bm{S}'\bm{S})^{-1}\bm{S}'$
 3. Iteratively update $\bm{G}$ using SGD with Adam method and ES objective over a test set
 
-# Example: Australian tourism
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r tourismdata, echo=TRUE}
-tourism
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r tourismagg, echo=TRUE}
-tourism_agg <- tourism %>%
-  aggregate_key(state / zone / region, visitors = sum(visitors))
-```
-
-```{r tourismagg2, echo=FALSE}
-tourism_agg
-```
-
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r tourismmodels, echo=TRUE}
-fit <- tourism_agg %>%
-  filter(year(month) <= 2015) %>%
-  model(ets = ETS(visitors))
-```
-
-```{r tourismmodels1, echo=FALSE}
-fit
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism, echo=TRUE}
-fc <- fit %>%
-  reconcile(ets_adjusted = min_trace(ets)) %>%
-  forecast(h = "2 years")
-```
-
-```{r fctourism1, echo=FALSE}
-fc
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism2, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(is_aggregated(state)) %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism3, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(state == "NSW" & is_aggregated(zone)) %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism4, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(region == "Melbourne") %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism5, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(region == "Snowy Mountains") %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism6, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(region == "Barossa") %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourism7, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
-fc %>%
-  filter(region == "MacDonnell") %>%
-  autoplot(filter(tourism_agg, year(month) > 2012), level = 95)
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fctourismcomb, echo=TRUE}
-fc <- tourism_agg %>%
-  filter(year(month) <= 2015) %>%
-  model(
-    ets = ETS(visitors),
-    arima = ARIMA(visitors)
-  ) %>%
-  mutate(
-    comb = (ets + arima) / 2
-  ) %>%
-  reconcile(
-    ets_adj = min_trace(ets),
-    arima_adj = min_trace(arima),
-    comb_adj = min_trace(comb)
-  ) %>%
-  forecast(h = "2 years")
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fcaccuracy, dependson='fctourismcomb', echo=TRUE}
-fc %>%
-  accuracy(data = tourism_agg,
-           measures = list(crps = CRPS, ss=skill_score(CRPS)))
-```
-
-## Example: Australian tourism
-\fontsize{10}{11}\sf
-
-```{r fcaccuracy2, dependson='fctourismcomb', echo=TRUE}
-fc %>%
-  accuracy(tourism_agg,
-           measures = list(crps = CRPS, ss=skill_score(CRPS))) %>%
-  group_by(.model) %>%
-  summarise(sspc = mean(ss) * 100) %>%
-  arrange(sspc)
-```
-
 
 # Example: Australian electricity generation
 
 ## Example: Australian electricity generation
 
+\hspace*{-0.8cm}\begin{minipage}{15.6cm}
 \begin{block}{Daily time series from \url{opennem.org.au}}
-\begin{enumerate}
-\item
-  Total = Renewable + Non-renewable
-\item
-  Renewable = Batteries + Hydro + Solar + Wind + Biomass\\
-  Non-Renewable = Coal + Gas + Distillate
-\item
-  Battery = Battery (Discharging) + Battery (Charging)\\
-  Solar = Solar (Rooftop) + Solar (Utility)\\
-  Coal = Black Coal + Brown Coal\\
-  Gas = Gas (OCGT) + Gas (CCGT) + Gas (Steam) + Gas (Recip)
-\end{enumerate}
+\begin{tikzpicture}
+\tikzstyle{every node}=[rectangle, rounded corners=2pt,draw,inner sep=1pt,fill=red!15]
+\tikzstyle[level distance=.1cm]
+\tikzstyle[sibling distance=7cm]
+\tikzstyle{level 1}=[sibling distance=8.2cm,set style={{every node}+=[fill=blue!15]}]
+\tikzstyle{level 2}=[sibling distance=16.5mm,font=\footnotesize,set style={{every node}+=[fill=green!15]}]
+\tikzstyle{level 3}=[sibling distance=10mm,font=\footnotesize,set style={{every node}+=[fill=yellow]}]
+\node{Total generation}[edge from parent fork down]
+ child {node {Renewable}
+   child {node[xshift=0.2cm] {Batteries}
+    child {node[xshift=-0.3cm] {Discharging}}
+    child {node[xshift=0.3cm] {Charging}}
+   }
+   child {node[fill=yellow] {Wind}}
+   child {node {Hydro+Pumps}
+     child {node {Hydro}}
+     child {node {Pumps}}
+   }
+   child {node[xshift=0.2cm,fill=yellow] {Biomass}}
+   child {node[xshift=-0.2cm] {Solar}
+     child {node {Rooftop}}
+     child {node[xshift=0.1cm] {Utility}}
+   }
+ }
+ child {node {Non-renewable}
+   child {node {Gas}
+     child {node {OCGT}}
+     child {node {CCGT}}
+     child {node {Steam}}
+     child {node {Recip}}
+   }
+   child {node[fill=yellow] {Distillate}}
+   child {node {Coal}
+     child {node {Black}}
+     child {node {Brown}}
+   }
+ };
+\end{tikzpicture}
 \end{block}
+\end{minipage}
 
-$n=23$ series; $m=15$ bottom-level series.
-
+\begin{textblock}{10}(3,7.8)
+\begin{block}{}\vspace*{-0.1cm}
+\centerline{$n=23$ series\qquad $m=15$ bottom-level series}
+\end{block}
+\end{textblock}
 
 ## Example: Australian electricity generation
 
@@ -1173,7 +1255,6 @@ Blue = positive correlation. Red = negative correlation. Large = stronger correl
 \end{block}
 \end{textblock}
 
-
 ## Example: Australian electricity generation
 
 \placefig{0.3}{1.5}{width=7.2cm, height=10cm}{meanenergyscore}
@@ -1206,7 +1287,6 @@ Mean Energy score
 \end{block}
 \end{textblock}
 
-
 ## Example: Australian electricity generation
 
 \placefig{0.3}{1.5}{width=6.cm, height=10cm}{nemenyi_ig}
@@ -1225,17 +1305,34 @@ Base forecasts are obtained by jointly bootstrapping residuals.
 \end{block}
 \end{textblock}
 
+## Thanks!
 
-## Thanks
+\placefig{0}{1.4}{trim = 10 45 0 0, clip=TRUE, width=10cm, height=2.5cm}{roman}
+\placefig{2}{1.4}{trim = 20 20 0 0, clip=TRUE, width=10cm, height=2.7cm}{george}
+\placefig{4}{1.4}{trim = 0 10 0 0, clip=TRUE, width=10cm, height=2.5cm}{hanlin}
+\placefig{6}{1.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{earowang}
+\placefig{8}{1.4}{trim = 0 15 0 0, clip=TRUE, width=10cm, height=2.5cm}{alanlee}
+\placefig{10}{1.4}{trim = 30 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{mitch}
+\placefig{12}{1.4}{trim = 15 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{shanika}
+\placefig{14}{1.4}{trim = 40 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{tas}
 
-\placefig{0.2}{1.5}{width=10cm, height=3.5cm}{george}
-\placefig{3.7}{1.5}{width=10cm, height=3.5cm}{tas}
-\placefig{8.}{1.5}{width=10cm, height=3.5cm}{mitch}
-\placefig{12.2}{1.5}{width=10cm, height=3.5cm}{earowang}
-\placefig{0.2}{5.3}{width=10cm, height=3.5cm}{roman}
-\placefig{3.7}{5.3}{width=10cm, height=3.5cm}{hanlin}
-\placefig{8.}{5.3}{width=10cm, height=3.5cm}{shanika}
-\placefig{12.2}{5.3}{width=10cm, height=3.5cm}{puwasala}
+\placefig{0}{3.9}{trim = 30 10 30 0, clip=TRUE, width=10cm, height=2.5cm}{puwasala}
+\placefig{2}{3.9}{trim = 0 10 0 0, clip=TRUE, width=10cm, height=2.5cm}{fotios}
+\placefig{4}{3.9}{trim = 100 30 50 20, clip=TRUE, width=10cm, height=2.5cm}{nikos}
+\placefig{6}{3.9}{trim = 50 30 0 0, clip=TRUE, width=10cm, height=2.5cm}{souhaib}
+\placefig{8}{3.9}{trim = 110 40 50 0, clip=TRUE, width=10cm, height=2.5cm}{james}
+\placefig{10}{3.9}{trim = 40 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{mahdi}
+\placefig{12}{3.9}{trim = 50 50 0 0, clip=TRUE, width=10cm, height=2.5cm}{christoph}
+\placefig{14}{3.9}{trim = 50 50 0 20, clip=TRUE, width=10cm, height=2.5cm}{fin}
+
+\placefig{0}{6.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{berwin}
+\placefig{2}{6.4}{trim = 10 20 0 0, clip=TRUE, width=10cm, height=2.5cm}{galit}
+\placefig{4}{6.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{mahsa}
+\placefig{6}{6.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{florian}
+\placefig{8}{6.4}{trim = 30 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{evan}
+\placefig{10}{6.4}{trim = 5 5 0 0, clip=TRUE, width=10cm, height=2.5cm}{vassilis}
+\placefig{12}{6.4}{trim = 90 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{carla}
+\placefig{14}{6.4}{trim = 0 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{pablo}
 
 ## More information
 \fontsize{18}{20}\sf
@@ -1256,4 +1353,3 @@ Base forecasts are obtained by jointly bootstrapping residuals.
 \end{alertblock}
 \end{textblock}
 \vspace*{10cm}
-
